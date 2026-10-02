@@ -13,6 +13,7 @@ export default function RegisterPage() {
   const [form, setForm] = useState({ name: "", businessName: "", email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const update = (field) => (e) => setForm({ ...form, [field]: e.target.value });
 
@@ -57,8 +58,14 @@ export default function RegisterPage() {
 
         <button
           type="button"
-          onClick={() => signIn("google", { callbackUrl: "/register" })}
-          className="mt-6 flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          disabled={googleLoading}
+          onClick={() => {
+            // Two sign-in requests would overwrite each other's PKCE cookie and fail the callback.
+            if (googleLoading) return;
+            setGoogleLoading(true);
+            signIn("google", { callbackUrl: "/register" });
+          }}
+          className="mt-6 flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
         >
           <GoogleIcon />
           Continue with Google
