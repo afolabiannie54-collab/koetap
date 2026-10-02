@@ -9,6 +9,8 @@ const UserSchema = new mongoose.Schema(
     businessId: { type: mongoose.Schema.Types.ObjectId, ref: "Business", default: null },
     storeId: { type: mongoose.Schema.Types.ObjectId, ref: "Store", default: null },
     isActive: { type: Boolean, default: true },
+    // False for Google sign-ups until they name their business on /setup.
+    setupComplete: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

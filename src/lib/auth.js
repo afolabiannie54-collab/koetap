@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
@@ -6,7 +6,6 @@ import { MongoClient } from "mongodb";
 import bcrypt from "bcryptjs";
 import connectDB from "@/lib/db";
 import User from "@/models/User";
-import Business from "@/models/Business";
 
 const uri = process.env.MONGODB_URI;
 
@@ -20,7 +19,12 @@ if (!clientPromise) {
   clientPromise = global._mongoClientPromise = new MongoClient(uri).connect();
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+// Surfaces on the client as `code` so the login page can show a specific message.
+class GoogleAccountError extends CredentialsSignin {
+  code = "google_account";
+}
+
+export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   adapter: MongoDBAdapter(clientPromise),
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
@@ -43,8 +47,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         await connectDB();
         const user = await User.findOne({ email });
-        // Google-only users have no password; inactive users can't sign in.
-        if (!user || !user.password || !user.isActive) return null;
+        if (!user || !user.isActive) return null;
+        // Google-only accounts have no password to compare against.
+        if (!user.password) throw new GoogleAccountError();
 
         const valid = await bcrypt.compare(password, user.password);
         if (!valid) return null;
@@ -54,30 +59,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   events: {
-    // First Google sign-in: the adapter creates a bare user, so give them a business and the owner role.
+    // First Google sign-in: the adapter creates a bare user. Make them an owner, and send
+    // them to /setup to name their business (the proxy enforces this via setupComplete).
     async createUser({ user }) {
       await connectDB();
-      const business = await Business.create({
-        name: `${user.name || "My"}'s Business`,
-        ownerId: user.id,
-        email: user.email,
-      });
       await User.updateOne(
         { _id: user.id },
-        { role: "owner", businessId: business._id, isActive: true }
+        { role: "owner", isActive: true, setupComplete: false }
       );
     },
   },
   callbacks: {
-    async jwt({ token, user }) {
-      // Load role/business info from the DB on sign-in (user is only set then).
-      if (user) {
+    async jwt({ token, user, trigger }) {
+      // Load role/business info from the DB on sign-in (user is only set then) and whenever
+      // the session is explicitly updated, e.g. after finishing setup.
+      if (user || trigger === "update") {
         await connectDB();
-        const dbUser = await User.findById(user.id).lean();
-        token.id = user.id;
+        const id = user?.id ?? token.id;
+        const dbUser = await User.findById(id).lean();
+        token.id = id;
         token.role = dbUser?.role ?? "owner";
         token.businessId = dbUser?.businessId?.toString() ?? null;
         token.storeId = dbUser?.storeId?.toString() ?? null;
+        // Users created before this flag existed have no value; a business means they're set up.
+        token.setupComplete = dbUser?.setupComplete ?? Boolean(dbUser?.businessId);
       }
       return token;
     },
@@ -86,6 +91,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.role = token.role;
       session.user.businessId = token.businessId;
       session.user.storeId = token.storeId;
+      session.user.setupComplete = token.setupComplete;
       return session;
     },
   },

@@ -7,6 +7,10 @@ import { signIn, getSession } from "next-auth/react";
 
 const HOME = { superadmin: "/admin", owner: "/dashboard", cashier: "/pos" };
 
+const CREDENTIALS_ERRORS = {
+  google_account: "This account was created with Google. Please sign in with Google instead.",
+};
+
 const inputClass =
   "mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200";
 
@@ -25,7 +29,8 @@ export default function LoginPage() {
 
     const res = await signIn("credentials", { email, password, redirect: false });
     if (res?.error) {
-      setError("Invalid email or password");
+      // res.code carries the specific reason thrown by the credentials provider.
+      setError(CREDENTIALS_ERRORS[res.code] ?? "Invalid email or password");
       setLoading(false);
       return;
     }

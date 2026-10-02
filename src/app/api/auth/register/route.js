@@ -36,6 +36,7 @@ export async function POST(request) {
         password: hashed,
         role: "owner",
         businessId: business._id,
+        setupComplete: true,
       });
     } catch (err) {
       await Business.deleteOne({ _id: business._id });
