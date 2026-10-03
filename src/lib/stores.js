@@ -63,3 +63,7 @@ export function serializeStore(store) {
     isActive: store.isActive !== false,
   };
 }
+
+export function formatMoney(amount, currency = "NGN") {
+  return new Intl.NumberFormat("en-NG", { style: "currency", currency }).format(amount ?? 0);
+}

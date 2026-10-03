@@ -10,6 +10,7 @@ const InventoryLogSchema = new mongoose.Schema(
     newStock: { type: Number, required: true },
     referenceId: { type: mongoose.Schema.Types.ObjectId, default: null },
     performedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    reason: { type: String },
   },
   { timestamps: true }
 );

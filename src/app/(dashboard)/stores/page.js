@@ -62,7 +62,7 @@ export default async function StoresPage() {
                   <Link href={`/stores/${store.id}`}>Open Store</Link>
                 </Button>
                 <Button asChild size="sm" variant="outline">
-                  <Link href={`/stores/${store.id}?tab=settings`}>Edit</Link>
+                  <Link href={`/stores/${store.id}/settings`}>Edit</Link>
                 </Button>
               </CardFooter>
             </Card>
