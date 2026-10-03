@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { ArrowLeft, LogOut, Minus, Plus, Search, ShoppingCart, Trash2, X } from "lucide-react";
+import { ArrowLeft, Clock, LogOut, Minus, Pause, Plus, Search, ShoppingCart, Trash2, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +15,17 @@ import {
 import { ReceiptView, StoreBrand } from "@/components/pos/receipt-view";
 import { PAYMENT_LABELS, PAYMENT_METHODS, readableTextColor, roundMoney } from "@/lib/pos";
 import { formatMoney } from "@/lib/stores";
+import {
+  addHeldOrder,
+  clearAllHeldOrders,
+  heldOrderTotal,
+  parseHeld,
+  readHeldRaw,
+  removeHeldOrder,
+  serverHeldRaw,
+  subscribeHeld,
+  timeAgo,
+} from "@/lib/held-orders";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_ACCENT = "#4f46e5";
@@ -50,6 +61,20 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
   const [saleError, setSaleError] = useState("");
   const [receipt, setReceipt] = useState(null);
 
+  // Held sales: kept in this browser only. The raw string is what useSyncExternalStore watches.
+  const heldRaw = useSyncExternalStore(
+    subscribeHeld,
+    () => readHeldRaw(store.id),
+    serverHeldRaw
+  );
+  const heldOrders = useMemo(() => parseHeld(heldRaw), [heldRaw]);
+  const [heldOpen, setHeldOpen] = useState(false);
+  const [toast, setToast] = useState("");
+  const toastTimer = useRef(null);
+  // Name/price remembered for lines restored from a held order, which are shown even if the
+  // product has since disappeared from the POS.
+  const [restored, setRestored] = useState({});
+
   const productMap = useMemo(() => new Map(products.map((p) => [p._id, p])), [products]);
 
   const categories = useMemo(
@@ -73,6 +98,8 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
       id,
       quantity,
       product,
+      name: product?.name ?? restored[id]?.name ?? "Unavailable product",
+      fromHeld: id in restored,
       problem: !product ? "No longer available" : quantity > product.stock ? `Only ${product.stock} left` : "",
     };
   });
@@ -110,6 +137,10 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
     setSaleError("");
     setCart((c) => {
       const { [id]: _removed, ...rest } = c;
+      return rest;
+    });
+    setRestored((r) => {
+      const { [id]: _gone, ...rest } = r;
       return rest;
     });
   }
@@ -158,6 +189,7 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
 
     setReceipt(data.sale);
     setCart({});
+    setRestored({});
     setDiscount("");
     setCartOpen(false);
     refreshProducts();
@@ -167,6 +199,63 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
     setReceipt(null);
     setSaleError("");
     setPayment("cash");
+  }
+
+  function showToast(message) {
+    setToast(message);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(""), 2500);
+  }
+
+  function holdSale() {
+    const saved = addHeldOrder(store.id, {
+      items: lines.map((l) => ({
+        productId: l.id,
+        name: l.name,
+        price: l.product?.price ?? restored[l.id]?.price ?? 0,
+        quantity: l.quantity,
+      })),
+      discount: discountError ? 0 : discountValue,
+      paymentMethod: payment,
+    });
+
+    // If the browser won't store it, keep the cart rather than lose the sale.
+    if (!saved) {
+      showToast("Could not hold the sale: this browser blocked storage");
+      return;
+    }
+
+    setCart({});
+    setRestored({});
+    setDiscount("");
+    setPayment("cash");
+    setSaleError("");
+    setCartOpen(false);
+    showToast("Sale held");
+  }
+
+  function restoreHeld(order) {
+    if (lines.length > 0 && !window.confirm("This will replace your current cart. Continue?")) return;
+
+    setCart(Object.fromEntries(order.items.map((i) => [i.productId, i.quantity])));
+    setRestored(Object.fromEntries(order.items.map((i) => [i.productId, { name: i.name, price: i.price }])));
+    setDiscount(order.discount > 0 ? String(order.discount) : "");
+    setPayment(PAYMENT_METHODS.includes(order.paymentMethod) ? order.paymentMethod : "cash");
+    setSaleError("");
+    removeHeldOrder(store.id, order.id);
+    setHeldOpen(false);
+    setCartOpen(true);
+    refreshProducts(); // so stock warnings reflect the shelf as it is now
+  }
+
+  function discardHeld(order) {
+    if (!window.confirm("Discard this held order?")) return;
+    removeHeldOrder(store.id, order.id);
+  }
+
+  function signOutCashier() {
+    clearAllHeldOrders();
+    signOut({ callbackUrl: "/login" });
   }
 
   const rootStyle = { "--accent": accent, "--accent-fg": accentFg };
@@ -186,9 +275,21 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
         <header className="flex items-center justify-between gap-3 border-b bg-white px-4 py-3">
           <StoreBrand store={store} className="text-xl" />
           {store.logoUrl && <span className="truncate text-lg font-bold">{store.name}</span>}
-          <div className="ml-auto text-right text-xs text-gray-500 lg:hidden">
-            <p className="font-medium text-gray-700">{cashierName}</p>
-            <p>{now ? now.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" }) : "--:--"}</p>
+          <div className="ml-auto flex items-center gap-3">
+            {heldOrders.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setHeldOpen(true)}
+                className="flex h-10 items-center gap-1.5 rounded-full border border-gray-300 bg-white px-3.5 text-sm font-semibold text-gray-700 active:scale-[0.97]"
+              >
+                <Clock className="size-4" />
+                Held ({heldOrders.length})
+              </button>
+            )}
+            <div className="text-right text-xs text-gray-500 lg:hidden">
+              <p className="font-medium text-gray-700">{cashierName}</p>
+              <p>{now ? now.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" }) : "--:--"}</p>
+            </div>
           </div>
         </header>
 
@@ -310,7 +411,7 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
             {role === "cashier" ? (
               <button
                 type="button"
-                onClick={() => signOut({ callbackUrl: "/login" })}
+                onClick={signOutCashier}
                 className="flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-gray-600 hover:bg-gray-100"
               >
                 <LogOut className="size-4" />
@@ -345,16 +446,16 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
           ) : (
             <ul className="divide-y">
               {lines.map((l) => (
-                <li key={l.id} className="py-3">
+                <li key={l.id} className={cn("py-3", l.fromHeld && l.problem && "-mx-2 rounded-xl bg-red-50 px-2")}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{l.product?.name ?? "Unavailable product"}</p>
+                      <p className={cn("truncate text-sm font-semibold", l.fromHeld && l.problem && "text-red-700")}>{l.name}</p>
                       {l.product && <p className="text-xs text-gray-500">{money(l.product.price)} each</p>}
                     </div>
                     <button
                       type="button"
                       onClick={() => removeLine(l.id)}
-                      aria-label={`Remove ${l.product?.name ?? "item"}`}
+                      aria-label={`Remove ${l.name}`}
                       className="flex size-8 shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600"
                     >
                       <Trash2 className="size-4" />
@@ -386,7 +487,9 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
                   </div>
                   {l.problem && (
                     <p role="alert" className="mt-1.5 text-xs font-medium text-red-600">
-                      {l.problem}. Reduce the quantity or remove it.
+                      {l.fromHeld
+                        ? `This item may no longer be available. Check before completing sale. (${l.problem})`
+                        : `${l.problem}. Reduce the quantity or remove it.`}
                     </p>
                   )}
                 </li>
@@ -458,6 +561,17 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
             </p>
           )}
 
+          {lines.length > 0 && (
+            <button
+              type="button"
+              onClick={holdSale}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-gray-300 bg-white text-base font-semibold text-gray-700 active:scale-[0.99]"
+            >
+              <Pause className="size-4" />
+              Hold Sale
+            </button>
+          )}
+
           <button
             type="button"
             disabled={!canComplete}
@@ -469,6 +583,69 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
           </button>
         </footer>
       </aside>
+
+      {toast && (
+        <div
+          role="status"
+          className="pointer-events-none fixed top-20 left-1/2 z-50 -translate-x-1/2 rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white shadow-lg"
+        >
+          {toast}
+        </div>
+      )}
+
+      <Dialog open={heldOpen} onOpenChange={setHeldOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Held orders</DialogTitle>
+            <DialogDescription>Saved on this device. Restore one to carry on with that sale.</DialogDescription>
+          </DialogHeader>
+
+          {heldOrders.length === 0 ? (
+            <p className="py-6 text-center text-sm text-gray-500">No held orders.</p>
+          ) : (
+            <ul className="max-h-[60dvh] space-y-3 overflow-y-auto">
+              {[...heldOrders].reverse().map((order) => {
+                const count = order.items.reduce((n, i) => n + i.quantity, 0);
+                return (
+                  <li key={order.id} className="rounded-xl border border-gray-200 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold">
+                          Held {timeAgo(order.heldAt, now ?? new Date(order.heldAt))}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {count} {count === 1 ? "item" : "items"}
+                        </p>
+                        <p className="mt-1 truncate text-xs text-gray-500">
+                          {order.items.map((i) => `${i.name} x${i.quantity}`).join(", ")}
+                        </p>
+                      </div>
+                      <p className="shrink-0 text-lg font-bold">{money(heldOrderTotal(order))}</p>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => restoreHeld(order)}
+                        style={{ background: accent, color: accentFg }}
+                        className="h-11 rounded-xl text-sm font-bold"
+                      >
+                        Restore
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => discardHeld(order)}
+                        className="h-11 rounded-xl border border-gray-300 text-sm font-semibold text-red-600"
+                      >
+                        Discard
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={confirmOpen} onOpenChange={(open) => !submitting && setConfirmOpen(open)}>
         <DialogContent>
