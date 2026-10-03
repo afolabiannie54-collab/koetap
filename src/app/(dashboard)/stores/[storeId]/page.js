@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import connectDB from "@/lib/db";
 import Product from "@/models/Product";
 import Sale from "@/models/Sale";
+import User from "@/models/User";
 import { getStorePageData } from "@/lib/store-page";
 import { lowStockExpr } from "@/lib/products";
 import { formatMoney } from "@/lib/stores";
@@ -14,7 +15,7 @@ export default async function StoreOverviewPage({ params }) {
 
   await connectDB();
   const id = new mongoose.Types.ObjectId(store.id);
-  const [products, sales, revenue, lowStock] = await Promise.all([
+  const [products, sales, revenue, lowStock, cashiers] = await Promise.all([
     Product.countDocuments({ storeId: id, isActive: true }),
     Sale.countDocuments({ storeId: id }),
     Sale.aggregate([{ $match: { storeId: id } }, { $group: { _id: null, total: { $sum: "$total" } } }]),
@@ -23,6 +24,7 @@ export default async function StoreOverviewPage({ params }) {
       isActive: true,
       $expr: lowStockExpr(store.lowStockThreshold),
     }),
+    User.countDocuments({ role: "cashier", storeId: id, businessId: store.businessId, isActive: true }),
   ]);
 
   const stats = [
@@ -32,7 +34,7 @@ export default async function StoreOverviewPage({ params }) {
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {stats.map(({ label, value }) => (
         <Card key={label}>
           <CardHeader>
@@ -53,6 +55,19 @@ export default async function StoreOverviewPage({ params }) {
             <CardTitle className={lowStock > 0 ? "text-3xl text-amber-600" : "text-3xl"}>
               {lowStock}
             </CardTitle>
+          </CardHeader>
+        </Card>
+      </Link>
+
+      {/* Clickable: opens the Staff tab */}
+      <Link
+        href={`/stores/${store.id}/staff`}
+        className="rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <Card className="h-full transition-colors hover:bg-muted/50">
+          <CardHeader>
+            <CardDescription>Active Cashiers</CardDescription>
+            <CardTitle className="text-3xl">{cashiers}</CardTitle>
           </CardHeader>
         </Card>
       </Link>

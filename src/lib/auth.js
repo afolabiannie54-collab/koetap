@@ -24,6 +24,10 @@ class GoogleAccountError extends CredentialsSignin {
   code = "google_account";
 }
 
+class DeactivatedError extends CredentialsSignin {
+  code = "deactivated";
+}
+
 export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   adapter: MongoDBAdapter(clientPromise),
   session: { strategy: "jwt" },
@@ -47,12 +51,15 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
 
         await connectDB();
         const user = await User.findOne({ email });
-        if (!user || !user.isActive) return null;
+        if (!user) return null;
         // Google-only accounts have no password to compare against.
         if (!user.password) throw new GoogleAccountError();
 
         const valid = await bcrypt.compare(password, user.password);
         if (!valid) return null;
+
+        // Checked after the password so the message is only shown to someone who knows it.
+        if (!user.isActive) throw new DeactivatedError();
 
         return { id: user._id.toString(), name: user.name, email: user.email };
       },
@@ -70,6 +77,14 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
     },
   },
   callbacks: {
+    // Google sign-in links to an existing account by email, so a deactivated user
+    // (e.g. a cashier whose email is a Google account) must be stopped here too.
+    async signIn({ user, account }) {
+      if (account?.provider === "credentials") return true;
+      await connectDB();
+      const dbUser = await User.findOne({ email: user.email }).select("isActive").lean();
+      return dbUser?.isActive !== false;
+    },
     async jwt({ token, user, trigger }) {
       // Load role/business info from the DB on sign-in (user is only set then) and whenever
       // the session is explicitly updated, e.g. after finishing setup.
@@ -83,6 +98,12 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         token.storeId = dbUser?.storeId?.toString() ?? null;
         // Users created before this flag existed have no value; a business means they're set up.
         token.setupComplete = dbUser?.setupComplete ?? Boolean(dbUser?.businessId);
+      } else if (token.role === "cashier" && token.id) {
+        // Cashiers are deactivated by their owner, and a cookie issued earlier would otherwise
+        // keep working until it expires. Returning null ends the session.
+        await connectDB();
+        const dbUser = await User.findById(token.id).select("isActive").lean();
+        if (!dbUser || dbUser.isActive === false) return null;
       }
       return token;
     },
