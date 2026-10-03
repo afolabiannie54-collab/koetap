@@ -10,6 +10,7 @@ export function StoreTabs({ storeId }) {
   const tabs = [
     { href: base, label: "Overview", exact: true },
     { href: `${base}/products`, label: "Products" },
+    { href: `${base}/reports`, label: "Reports" },
     { href: `${base}/inventory`, label: "Inventory Log" },
     { href: `${base}/staff`, label: "Staff" },
     { href: `${base}/settings`, label: "Settings" },

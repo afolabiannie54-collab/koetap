@@ -28,4 +28,7 @@ const SaleSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Every report filters by store and date range, and sorts by date.
+SaleSchema.index({ storeId: 1, createdAt: -1 });
+
 export default mongoose.models.Sale || mongoose.model("Sale", SaleSchema);
