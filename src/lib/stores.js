@@ -59,6 +59,7 @@ export function serializeStore(store) {
     currency: store.currency ?? "NGN",
     accentColor: store.accentColor ?? "",
     receiptFooter: store.receiptFooter ?? "",
+    logoUrl: store.logoUrl ?? "",
     lowStockThreshold: store.lowStockThreshold ?? 5,
     isActive: store.isActive !== false,
   };

@@ -45,11 +45,11 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ error: "No changes provided" }, { status: 400 });
   }
 
-  // new: false returns the document as it was, which gives us the previous stock for the log.
+  // returnDocument: "before" returns the document as it was, which gives us the previous stock for the log.
   const product = await Product.findOneAndUpdate(
     productQuery(store, productId),
     { $set: data },
-    { new: false }
+    { returnDocument: "before" }
   );
   if (!product) return notFound();
 
@@ -83,7 +83,7 @@ export async function DELETE(_request, { params }) {
   const product = await Product.findOneAndUpdate(
     productQuery(store, productId),
     { $set: { isActive: false } },
-    { new: true }
+    { returnDocument: "after" }
   );
   if (!product) return notFound();
 

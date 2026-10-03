@@ -91,7 +91,7 @@ export async function DELETE(_request, { params }) {
   const user = await User.findOneAndUpdate(
     staffQuery(store, userId),
     { $set: { isActive: false } },
-    { new: true }
+    { returnDocument: "after" }
   ).select("-password");
   if (!user) return notFound();
 

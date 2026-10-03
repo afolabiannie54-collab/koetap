@@ -39,12 +39,12 @@ export async function PATCH(request, { params }) {
   const delta = type === "write-off" ? -quantity : quantity;
 
   // One atomic update (floored at 0), so two simultaneous adjustments can't overwrite each other.
-  // new: false returns the previous document, which gives the exact "previous stock" for the log.
+  // returnDocument: "before" returns the previous document, which gives the exact "previous stock" for the log.
   // updatePipeline is required by Mongoose to accept the array form of an update.
   const product = await Product.findOneAndUpdate(
     { _id: productId, storeId: store._id },
     [{ $set: { stock: { $max: [0, { $add: [{ $ifNull: ["$stock", 0] }, delta] }] } } }],
-    { new: false, updatePipeline: true }
+    { returnDocument: "before", updatePipeline: true }
   );
   if (!product) {
     return NextResponse.json({ error: "Product not found" }, { status: 404 });

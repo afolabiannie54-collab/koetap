@@ -10,7 +10,9 @@ const PROTECTED = [
   { prefix: "/reports", roles: ["owner", "superadmin"] },
   { prefix: "/settings", roles: ["owner", "superadmin"] },
   { prefix: "/admin", roles: ["superadmin"] },
-  { prefix: "/pos", roles: ["cashier"] },
+  // Owners open a store's POS from the store page. Which store is checked below (cashiers) and
+  // in the page and API (owners: the store must belong to their business).
+  { prefix: "/pos", roles: ["cashier", "owner", "superadmin"] },
 ];
 
 export default auth((req) => {
@@ -45,6 +47,13 @@ export default auth((req) => {
   if (!rule.roles.includes(role)) {
     return NextResponse.redirect(new URL(home ?? "/login", req.url));
   }
+
+  // A cashier may only open the POS of their own store.
+  if (rule.prefix === "/pos" && role === "cashier") {
+    const target = pathname.split("/")[2];
+    if (target && target !== user.storeId) return NextResponse.redirect(new URL("/pos", req.url));
+  }
+
   return NextResponse.next();
 });
 

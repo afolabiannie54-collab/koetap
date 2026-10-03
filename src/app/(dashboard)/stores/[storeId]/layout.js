@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ShoppingCart } from "lucide-react";
 import { getStorePageData } from "@/lib/store-page";
 import { StoreTabs } from "@/components/dashboard/store-tabs";
 import { Badge } from "@/components/ui/badge";
@@ -20,14 +20,22 @@ export default async function StoreLayout({ children, params }) {
         </Link>
       </Button>
 
-      <div>
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">{store.name}</h1>
-          <Badge variant={store.isActive ? "default" : "secondary"}>
-            {store.isActive ? "Active" : "Inactive"}
-          </Badge>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-semibold tracking-tight">{store.name}</h1>
+            <Badge variant={store.isActive ? "default" : "secondary"}>
+              {store.isActive ? "Active" : "Inactive"}
+            </Badge>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">{store.address || "No address set"}</p>
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">{store.address || "No address set"}</p>
+        <Button asChild>
+          <Link href={`/pos/${store.id}`}>
+            <ShoppingCart data-icon="inline-start" />
+            Open POS
+          </Link>
+        </Button>
       </div>
 
       <StoreTabs storeId={store.id} />
