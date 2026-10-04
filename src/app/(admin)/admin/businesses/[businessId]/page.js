@@ -40,11 +40,11 @@ export default async function AdminBusinessDetailPage({ params }) {
         </Link>
       </Button>
 
-      <Card className={business.isActive ? undefined : "border-red-300"}>
+      <Card className={business.isActive ? undefined : "border-error"}>
         <CardHeader>
           <div className="flex flex-wrap items-center gap-3">
             <CardTitle className="text-2xl">{business.name}</CardTitle>
-            <Badge variant={business.isActive ? "outline" : "destructive"}>
+            <Badge variant={business.isActive ? "default" : "destructive"}>
               {business.isActive ? "Active" : "Inactive"}
             </Badge>
             <Badge variant={business.plan === "paid" ? "default" : "secondary"}>
@@ -52,7 +52,7 @@ export default async function AdminBusinessDetailPage({ params }) {
             </Badge>
           </div>
           {!business.isActive && (
-            <CardDescription className="text-red-700">
+            <CardDescription className="text-error-ink">
               Suspended: its owner and cashiers are locked out.
             </CardDescription>
           )}
@@ -114,7 +114,7 @@ export default async function AdminBusinessDetailPage({ params }) {
                     <TableCell className="hidden min-[1300px]:table-cell text-right">{s.totalSales}</TableCell>
                     <TableCell className="text-right">{formatMoney(s.totalRevenue, s.currency)}</TableCell>
                     <TableCell>
-                      <Badge variant={s.isActive ? "outline" : "secondary"}>{s.isActive ? "Active" : "Inactive"}</Badge>
+                      <Badge variant={s.isActive ? "default" : "secondary"}>{s.isActive ? "Active" : "Inactive"}</Badge>
                     </TableCell>
                   </TableRow>
                 ))

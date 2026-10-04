@@ -73,7 +73,7 @@ export function SalesList({ storeId, from, to, currency }) {
           {current.error}
         </p>
       ) : (
-        <div className="rounded-xl border">
+        <div className="overflow-hidden rounded-2xl border border-border">
           <Table>
             <TableHeader>
               <TableRow>

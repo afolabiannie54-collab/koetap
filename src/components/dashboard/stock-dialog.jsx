@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { FormError } from "@/components/auth/form-error";
+import { useToast } from "@/components/ui/koetap/toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -30,6 +32,7 @@ const TYPES = [
 // Mounted only while open, so it starts fresh every time.
 export function StockDialog({ storeId, product, onClose }) {
   const router = useRouter();
+  const toast = useToast();
   const [type, setType] = useState("restock");
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState("");
@@ -64,6 +67,7 @@ export function StockDialog({ storeId, product, onClose }) {
       return;
     }
 
+    toast.success(`Stock updated for ${product.name}`);
     onClose();
     router.refresh();
   }
@@ -133,12 +137,13 @@ export function StockDialog({ storeId, product, onClose }) {
           </div>
 
           {errors.form && (
-            <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {errors.form}
-            </p>
+            <FormError>{errors.form}</FormError>
           )}
 
           <DialogFooter>
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
             <Button type="submit" disabled={loading}>
               {loading ? "Saving..." : "Apply adjustment"}
             </Button>

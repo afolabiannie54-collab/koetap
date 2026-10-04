@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -15,19 +15,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FormError } from "@/components/auth/form-error";
+import { useToast } from "@/components/ui/koetap/toast";
 import { CURRENCIES } from "@/lib/stores";
 
 const EMPTY = { name: "", address: "", currency: "NGN", lowStockThreshold: "5" };
 
-export function AddStoreDialog({ label = "Add Store", variant = "default" }) {
+export function AddStoreDialog({ label = "Add Store", variant = "default", size = "default" }) {
   const router = useRouter();
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
@@ -61,6 +58,7 @@ export function AddStoreDialog({ label = "Add Store", variant = "default" }) {
       return;
     }
 
+    toast.success(`${form.name.trim()} created`);
     handleOpenChange(false);
     router.refresh();
   }
@@ -68,17 +66,15 @@ export function AddStoreDialog({ label = "Add Store", variant = "default" }) {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant={variant}>
-          <Plus data-icon="inline-start" />
+        <Button variant={variant} size={size}>
+          <Plus />
           {label}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add a store</DialogTitle>
-          <DialogDescription>
-            Each store has its own products, staff and sales.
-          </DialogDescription>
+          <DialogDescription>Each store has its own products, staff and sales.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -99,10 +95,7 @@ export function AddStoreDialog({ label = "Add Store", variant = "default" }) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="store-currency">Currency</Label>
-              <Select
-                value={form.currency}
-                onValueChange={(currency) => setForm({ ...form, currency })}
-              >
+              <Select value={form.currency} onValueChange={(currency) => setForm({ ...form, currency })}>
                 <SelectTrigger id="store-currency" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -116,7 +109,7 @@ export function AddStoreDialog({ label = "Add Store", variant = "default" }) {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="store-threshold">Low stock threshold</Label>
+              <Label htmlFor="store-threshold">Low stock alert at</Label>
               <Input
                 id="store-threshold"
                 type="number"
@@ -129,13 +122,12 @@ export function AddStoreDialog({ label = "Add Store", variant = "default" }) {
             </div>
           </div>
 
-          {error && (
-            <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
-            </p>
-          )}
+          {error && <FormError>{error}</FormError>}
 
           <DialogFooter>
+            <Button type="button" variant="secondary" onClick={() => handleOpenChange(false)}>
+              Cancel
+            </Button>
             <Button type="submit" disabled={loading}>
               {loading ? "Creating..." : "Create store"}
             </Button>

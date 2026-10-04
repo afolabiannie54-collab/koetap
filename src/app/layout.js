@@ -1,28 +1,50 @@
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { dmSans } from "@/lib/fonts";
+import { ToastProvider } from "@/components/ui/koetap/toast";
 
 export const metadata = {
   title: "Koetap",
-  description: "Point of sale for growing businesses",
+  description: "Your store. Your POS.",
 };
+
+export const viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
+};
+
+// Runs before the page paints, so a dark-mode user never sees a white flash.
+// The choice is stored under "koetap-theme" ("light" or "dark"); with no choice it follows the device,
+// including when the device switches between light and dark while the app is open.
+const themeScript = `
+(function () {
+  var root = document.documentElement;
+  function apply(dark) {
+    root.classList.toggle("dark", dark);
+    root.style.colorScheme = dark ? "dark" : "light";
+  }
+  var query = window.matchMedia("(prefers-color-scheme: dark)");
+  var stored = null;
+  try { stored = localStorage.getItem("koetap-theme"); } catch (e) {}
+  apply(stored ? stored === "dark" : query.matches);
+  query.addEventListener("change", function (e) {
+    var chosen = null;
+    try { chosen = localStorage.getItem("koetap-theme"); } catch (err) {}
+    if (!chosen) apply(e.matches);
+  });
+})();
+`;
 
 export default function RootLayout({ children }) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en" className={`${dmSans.variable} h-full scroll-smooth antialiased`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
+      <body className="flex min-h-full flex-col bg-background font-sans text-foreground">
+        <ToastProvider>{children}</ToastProvider>
+      </body>
     </html>
   );
 }

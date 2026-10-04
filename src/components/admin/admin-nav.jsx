@@ -24,10 +24,8 @@ export function AdminNav({ orientation = "vertical" }) {
             href={href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors",
-              active
-                ? "bg-amber-400 text-stone-950 shadow-sm"
-                : "text-stone-600 hover:bg-amber-100 hover:text-stone-950"
+              "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium whitespace-nowrap transition-all duration-150",
+              active ? "bg-white text-[#0A0A0A]" : "text-white/60 hover:bg-white/10 hover:text-white"
             )}
           >
             <Icon className="size-4" />

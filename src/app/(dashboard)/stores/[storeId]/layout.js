@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { ArrowLeft, ShoppingCart } from "lucide-react";
+import { ArrowLeft, MapPin, ShoppingCart } from "lucide-react";
 import { getStorePageData } from "@/lib/store-page";
 import { StoreTabs } from "@/components/dashboard/store-tabs";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { KBadge } from "@/components/ui/koetap/KBadge";
 
 export const metadata = { title: "Store | Koetap" };
 
@@ -13,26 +13,27 @@ export default async function StoreLayout({ children, params }) {
 
   return (
     <div className="space-y-6">
-      <Button asChild variant="ghost" size="sm" className="-ml-2">
+      <Button asChild variant="ghost" size="sm" className="-ml-3 text-muted-foreground">
         <Link href="/stores">
-          <ArrowLeft data-icon="inline-start" />
-          Back to stores
+          <ArrowLeft />
+          All stores
         </Link>
       </Button>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight">{store.name}</h1>
-            <Badge variant={store.isActive ? "default" : "secondary"}>
-              {store.isActive ? "Active" : "Inactive"}
-            </Badge>
+            <h1 className="text-2xl font-bold tracking-tight [overflow-wrap:anywhere] sm:text-3xl">{store.name}</h1>
+            <KBadge variant={store.isActive ? "active" : "inactive"}>{store.isActive ? "Active" : "Inactive"}</KBadge>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">{store.address || "No address set"}</p>
+          <p className="mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground">
+            <MapPin className="size-4 shrink-0" />
+            {store.address || "No address set"}
+          </p>
         </div>
-        <Button asChild>
+        <Button asChild size="lg">
           <Link href={`/pos/${store.id}`}>
-            <ShoppingCart data-icon="inline-start" />
+            <ShoppingCart />
             Open POS
           </Link>
         </Button>
@@ -40,7 +41,7 @@ export default async function StoreLayout({ children, params }) {
 
       <StoreTabs storeId={store.id} />
 
-      <div>{children}</div>
+      <div className="pt-2">{children}</div>
     </div>
   );
 }

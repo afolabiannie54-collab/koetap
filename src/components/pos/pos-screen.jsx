@@ -3,16 +3,17 @@
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { ArrowLeft, Clock, LogOut, Minus, Pause, Plus, Search, ShoppingCart, Trash2, X } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { ReceiptView, StoreBrand } from "@/components/pos/receipt-view";
+import { ArrowLeft, Clock, LogOut, Minus, Package, Pause, Plus, Search, ShoppingBag, ShoppingCart, Trash2, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FormError } from "@/components/auth/form-error";
+import { useConfirm } from "@/components/ui/koetap/confirm-dialog";
+import { ThemeToggle } from "@/components/ui/koetap/theme-toggle";
+import { useToast } from "@/components/ui/koetap/toast";
+import { KTooltip } from "@/components/ui/koetap/tooltip";
+import { ReceiptPanel, StoreBrand } from "@/components/pos/receipt-panel";
 import { PAYMENT_LABELS, PAYMENT_METHODS, newSaleKey, readableTextColor, roundMoney } from "@/lib/pos";
 import { formatMoney } from "@/lib/stores";
 import {
@@ -28,7 +29,10 @@ import {
 } from "@/lib/held-orders";
 import { cn } from "@/lib/utils";
 
-const DEFAULT_ACCENT = "#4f46e5";
+// The store's accent colour drives the buttons and selected states. A store with no accent colour falls
+// back to Koetap's own black (white in dark mode), so it never looks unfinished.
+const ACCENT = { background: "var(--store-accent, var(--primary))", color: "var(--store-accent-fg, var(--primary-foreground))" };
+const ACCENT_EDGE = { borderColor: "var(--store-accent, var(--foreground))", boxShadow: "0 0 0 1px var(--store-accent, var(--foreground))" };
 
 // A live clock without setting state in an effect. null on the server so it can't mismatch.
 const subscribeClock = (onChange) => {
@@ -44,10 +48,11 @@ function useClock() {
 }
 
 export function PosScreen({ store, cashierName, role, initialProducts }) {
-  const accent = /^#[0-9a-fA-F]{6}$/.test(store.accentColor) ? store.accentColor : DEFAULT_ACCENT;
-  const accentFg = readableTextColor(accent);
+  const accent = /^#[0-9a-fA-F]{6}$/.test(store.accentColor) ? store.accentColor : null;
   const money = (n) => formatMoney(n, store.currency);
   const now = useClock();
+  const toast = useToast();
+  const [confirm, confirmDialog] = useConfirm();
 
   const [products, setProducts] = useState(initialProducts);
   const [cart, setCart] = useState({}); // productId -> quantity
@@ -68,15 +73,9 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
   const [receipt, setReceipt] = useState(null);
 
   // Held sales: kept in this browser only. The raw string is what useSyncExternalStore watches.
-  const heldRaw = useSyncExternalStore(
-    subscribeHeld,
-    () => readHeldRaw(store.id),
-    serverHeldRaw
-  );
+  const heldRaw = useSyncExternalStore(subscribeHeld, () => readHeldRaw(store.id), serverHeldRaw);
   const heldOrders = useMemo(() => parseHeld(heldRaw), [heldRaw]);
   const [heldOpen, setHeldOpen] = useState(false);
-  const [toast, setToast] = useState("");
-  const toastTimer = useRef(null);
   // Name/price remembered for lines restored from a held order, which are shown even if the
   // product has since disappeared from the POS.
   const [restored, setRestored] = useState({});
@@ -122,7 +121,15 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
   const hasProblem = lines.some((l) => l.problem);
   const canComplete = lines.length > 0 && !hasProblem && !discountError && Boolean(payment);
 
+  function startNewSale() {
+    setReceipt(null);
+    setSaleError("");
+    setPayment(null);
+  }
+
   function addToCart(p) {
+    // Tapping a product while the last receipt is still showing starts the next sale.
+    if (receipt) startNewSale();
     setSaleError("");
     setCart((c) => {
       const next = (c[p._id] ?? 0) + 1;
@@ -219,20 +226,8 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
     setCart({});
     setRestored({});
     setDiscount("");
-    setCartOpen(false);
+    setCartOpen(true); // on a phone, show the receipt straight away
     refreshProducts();
-  }
-
-  function startNewSale() {
-    setReceipt(null);
-    setSaleError("");
-    setPayment(null);
-  }
-
-  function showToast(message) {
-    setToast(message);
-    clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(""), 2500);
   }
 
   function holdSale() {
@@ -249,7 +244,7 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
 
     // If the browser won't store it, keep the cart rather than lose the sale.
     if (!saved) {
-      showToast("Could not hold the sale: this browser blocked storage");
+      toast.error("Could not hold the sale: this browser blocked storage");
       return;
     }
 
@@ -259,12 +254,22 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
     setPayment(null);
     setSaleError("");
     setCartOpen(false);
-    showToast("Sale held");
+    toast.success("Sale held");
   }
 
-  function restoreHeld(order) {
-    if (lines.length > 0 && !window.confirm("This will replace your current cart. Continue?")) return;
+  async function restoreHeld(order) {
+    if (
+      lines.length > 0 &&
+      !(await confirm({
+        title: "Replace your current cart?",
+        description: "This will replace your current cart. Continue?",
+        confirmLabel: "Replace cart",
+      }))
+    ) {
+      return;
+    }
 
+    if (receipt) setReceipt(null);
     setCart(Object.fromEntries(order.items.map((i) => [i.productId, i.quantity])));
     setRestored(Object.fromEntries(order.items.map((i) => [i.productId, { name: i.name, price: i.price }])));
     setDiscount(order.discount > 0 ? String(order.discount) : "");
@@ -276,8 +281,17 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
     refreshProducts(); // so stock warnings reflect the shelf as it is now
   }
 
-  function discardHeld(order) {
-    if (!window.confirm("Discard this held order?")) return;
+  async function discardHeld(order) {
+    if (
+      !(await confirm({
+        title: "Discard this held order?",
+        description: "It will be removed from this device and can't be brought back.",
+        confirmLabel: "Discard",
+        destructive: true,
+      }))
+    ) {
+      return;
+    }
     removeHeldOrder(store.id, order.id);
   }
 
@@ -286,352 +300,367 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
     signOut({ callbackUrl: "/login" });
   }
 
-  const rootStyle = { "--accent": accent, "--accent-fg": accentFg };
-
-  if (receipt) {
-    return (
-      <div style={rootStyle}>
-        <ReceiptView sale={receipt} store={store} accent={accent} accentFg={accentFg} onNewSale={startNewSale} />
-      </div>
-    );
-  }
+  const rootStyle = accent ? { "--store-accent": accent, "--store-accent-fg": readableTextColor(accent) } : undefined;
+  const clock = now ? now.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "--:--:--";
 
   return (
-    <div style={rootStyle} className="relative flex h-dvh overflow-hidden bg-gray-100 text-gray-900">
-      {/* LEFT: products */}
-      <section className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-3 border-b bg-white px-4 py-3">
-          <StoreBrand store={store} className="text-xl" />
-          {store.logoUrl && <span className="truncate text-lg font-bold">{store.name}</span>}
-          <div className="ml-auto flex items-center gap-3">
-            {heldOrders.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setHeldOpen(true)}
-                className="flex h-10 items-center gap-1.5 rounded-full border border-gray-300 bg-white px-3.5 text-sm font-semibold text-gray-700 active:scale-[0.97]"
-              >
-                <Clock className="size-4" />
-                Held ({heldOrders.length})
-              </button>
-            )}
-            <div className="text-right text-xs text-gray-500 lg:hidden">
-              <p className="font-medium text-gray-700">{cashierName}</p>
-              <p>{now ? now.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" }) : "--:--"}</p>
-            </div>
-          </div>
-        </header>
-
-        <div className="space-y-3 border-b bg-white px-4 pt-3 pb-3">
-          <div className="relative">
-            <Search className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search products"
-              aria-label="Search products"
-              className="h-12 w-full rounded-xl border border-gray-300 bg-gray-50 pr-3 pl-10 text-base outline-none focus:border-[var(--accent)] focus:bg-white"
-            />
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {["all", ...categories].map((c) => {
-              const active = category === c;
-              return (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setCategory(c)}
-                  aria-pressed={active}
-                  style={active ? { background: accent, color: accentFg } : undefined}
-                  className={cn(
-                    "h-10 shrink-0 rounded-full border px-4 text-sm font-medium",
-                    active ? "border-transparent" : "border-gray-300 bg-white text-gray-700"
-                  )}
-                >
-                  {c === "all" ? "All" : c}
-                </button>
-              );
-            })}
-          </div>
+    <div style={rootStyle} className="relative flex h-dvh flex-col overflow-hidden bg-muted text-foreground">
+      {/* Header bar */}
+      <header className="z-20 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background px-4">
+        <div className="flex min-w-0 shrink-0 items-center">
+          <StoreBrand store={store} className="max-w-48 text-lg" />
+        </div>
+        {/* With a logo on the left, the store's name sits in the middle */}
+        <div className="min-w-0 flex-1 text-center">
+          {store.logoUrl && <span className="hidden truncate text-sm font-semibold sm:inline">{store.name}</span>}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 pb-28 lg:pb-4">
-          {products.length === 0 ? (
-            <p className="py-16 text-center text-gray-500">No products in this store yet.</p>
-          ) : visible.length === 0 ? (
-            <p className="py-16 text-center text-gray-500">No products match your search.</p>
+        <div className="flex items-center gap-2 sm:gap-3">
+          {heldOrders.length > 0 && (
+            <Button type="button" variant="secondary" size="sm" onClick={() => setHeldOpen(true)}>
+              <Clock />
+              Held ({heldOrders.length})
+            </Button>
+          )}
+          <div className="hidden text-right leading-tight sm:block">
+            <p className="max-w-40 truncate text-sm font-semibold">{cashierName}</p>
+            <p className="text-xs text-muted-foreground tabular-nums">{clock}</p>
+          </div>
+          <p className="text-xs text-muted-foreground tabular-nums sm:hidden">{clock.slice(0, 5)}</p>
+          <ThemeToggle />
+          {role === "cashier" ? (
+            <KTooltip label="Sign out">
+              <Button type="button" variant="ghost" size="icon-sm" aria-label="Sign out" onClick={signOutCashier}>
+                <LogOut />
+              </Button>
+            </KTooltip>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-              {visible.map((p) => {
-                const out = p.stock <= 0;
-                const inCart = cart[p._id] ?? 0;
+            <KTooltip label="Back to dashboard">
+              <Button asChild variant="ghost" size="icon-sm">
+                <Link href={`/stores/${store.id}`} aria-label="Back to dashboard">
+                  <ArrowLeft />
+                </Link>
+              </Button>
+            </KTooltip>
+          )}
+        </div>
+      </header>
+
+      <div className="flex min-h-0 flex-1">
+        {/* LEFT: products */}
+        <section className="flex min-w-0 flex-1 flex-col">
+          <div className="space-y-3 border-b border-border bg-background px-4 py-3">
+            <div className="relative">
+              <Search className="pointer-events-none absolute top-1/2 left-3.5 size-5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search products"
+                aria-label="Search products"
+                className="h-12 pl-11 text-base"
+              />
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {["all", ...categories].map((c) => {
+                const active = category === c;
                 return (
                   <button
-                    key={p._id}
+                    key={c}
                     type="button"
-                    disabled={out}
-                    onClick={() => addToCart(p)}
+                    onClick={() => setCategory(c)}
+                    aria-pressed={active}
+                    style={active ? ACCENT : undefined}
                     className={cn(
-                      "relative flex min-h-32 flex-col justify-between rounded-2xl border bg-white p-4 text-left shadow-sm transition active:scale-[0.97]",
-                      out
-                        ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
-                        : "border-gray-200 hover:border-[var(--accent)] hover:shadow-md",
-                      inCart > 0 && "border-[var(--accent)] ring-2 ring-[var(--accent)]"
+                      "h-10 shrink-0 rounded-full border px-4 text-sm font-medium transition-all duration-150 active:scale-95",
+                      active ? "border-transparent" : "border-input bg-background text-foreground hover:bg-accent"
                     )}
                   >
-                    {inCart > 0 && (
-                      <span
-                        style={{ background: accent, color: accentFg }}
-                        className="absolute -top-2 -right-2 flex size-7 items-center justify-center rounded-full text-sm font-bold shadow"
-                      >
-                        {inCart}
-                      </span>
-                    )}
-                    <span className="line-clamp-2 text-base leading-snug font-semibold">{p.name}</span>
-                    <span>
-                      <span className={cn("block text-lg font-bold", !out && "text-[var(--accent)]")}>{money(p.price)}</span>
-                      <span className="block text-xs">{out ? "Out of stock" : `${p.stock} in stock`}</span>
-                    </span>
+                    {c === "all" ? "All" : c}
                   </button>
                 );
               })}
             </div>
-          )}
-        </div>
-      </section>
-
-      {/* Mobile: bar that opens the cart */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-white p-3 lg:hidden">
-        <button
-          type="button"
-          onClick={() => setCartOpen(true)}
-          style={{ background: accent, color: accentFg }}
-          className="flex h-14 w-full items-center justify-between rounded-xl px-5 text-base font-semibold"
-        >
-          <span className="flex items-center gap-2">
-            <ShoppingCart className="size-5" />
-            {itemCount === 0 ? "Cart is empty" : `View cart (${itemCount})`}
-          </span>
-          <span>{money(total)}</span>
-        </button>
-      </div>
-
-      {cartOpen && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setCartOpen(false)} aria-hidden="true" />}
-
-      {/* RIGHT: cart (fixed panel on desktop, slide-up sheet on mobile) */}
-      <aside
-        className={cn(
-          "fixed inset-x-0 bottom-0 z-40 flex h-[88dvh] flex-col rounded-t-3xl bg-white shadow-2xl transition-transform duration-300",
-          cartOpen ? "translate-y-0" : "translate-y-full",
-          "lg:static lg:z-auto lg:h-auto lg:w-[26rem] lg:shrink-0 lg:translate-y-0 lg:rounded-none lg:border-l lg:shadow-none"
-        )}
-      >
-        <header className="flex items-center justify-between gap-3 border-b px-4 py-3">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{cashierName}</p>
-            <p className="text-xs text-gray-500" suppressHydrationWarning>
-              {now
-                ? `${now.toLocaleDateString("en-NG", { dateStyle: "medium" })} · ${now.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
-                : "--"}
-            </p>
           </div>
-          <div className="flex items-center gap-1">
-            {role === "cashier" ? (
-              <button
-                type="button"
-                onClick={signOutCashier}
-                className="flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-gray-600 hover:bg-gray-100"
-              >
-                <LogOut className="size-4" />
-                Sign out
-              </button>
+
+          <div className="flex-1 overflow-y-auto p-4 pb-28 lg:pb-4">
+            {products.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 py-20 text-center text-muted-foreground">
+                <Package className="size-10" strokeWidth={1.5} />
+                <p>No products in this store yet.</p>
+              </div>
+            ) : visible.length === 0 ? (
+              <p className="py-20 text-center text-muted-foreground">No products match your search.</p>
             ) : (
-              <Link
-                href={`/stores/${store.id}`}
-                className="flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-gray-600 hover:bg-gray-100"
-              >
-                <ArrowLeft className="size-4" />
-                Dashboard
-              </Link>
-            )}
-            <button
-              type="button"
-              onClick={() => setCartOpen(false)}
-              aria-label="Close cart"
-              className="flex size-9 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 lg:hidden"
-            >
-              <X className="size-5" />
-            </button>
-          </div>
-        </header>
-
-        <div className="flex-1 overflow-y-auto px-4 py-3">
-          {lines.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center gap-2 text-gray-400">
-              <ShoppingCart className="size-10" />
-              <p className="text-sm">No items added yet</p>
-            </div>
-          ) : (
-            <ul className="divide-y">
-              {lines.map((l) => (
-                <li key={l.id} className={cn("py-3", l.fromHeld && l.problem && "-mx-2 rounded-xl bg-red-50 px-2")}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className={cn("truncate text-sm font-semibold", l.fromHeld && l.problem && "text-red-700")}>{l.name}</p>
-                      {l.product && <p className="text-xs text-gray-500">{money(l.product.price)} each</p>}
-                    </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                {visible.map((p) => {
+                  const out = p.stock <= 0;
+                  const inCart = cart[p._id] ?? 0;
+                  const low = !out && p.stock <= store.lowStockThreshold;
+                  return (
                     <button
+                      key={p._id}
                       type="button"
-                      onClick={() => removeLine(l.id)}
-                      aria-label={`Remove ${l.name}`}
-                      className="flex size-8 shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600"
+                      disabled={out}
+                      onClick={() => addToCart(p)}
+                      style={inCart > 0 ? ACCENT_EDGE : undefined}
+                      className={cn(
+                        "group/product relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card text-left shadow-sm transition-all duration-200 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground",
+                        out
+                          ? "cursor-not-allowed"
+                          : "hover:-translate-y-0.5 hover:shadow-md active:scale-95 active:duration-100"
+                      )}
                     >
-                      <Trash2 className="size-4" />
+                      {/* Picture area: a placeholder icon until products can have images */}
+                      <span
+                        className={cn(
+                          "flex aspect-[5/3] items-center justify-center bg-muted text-muted-foreground",
+                          out && "opacity-50 grayscale"
+                        )}
+                      >
+                        <Package className="size-8" strokeWidth={1.5} />
+                      </span>
+
+                      <span className={cn("flex flex-1 flex-col gap-1 p-3", out && "opacity-50")}>
+                        <span className="line-clamp-2 text-sm leading-snug font-semibold">{p.name}</span>
+                        <span className="mt-auto flex items-end justify-between gap-2 pt-1">
+                          <span className="text-base font-bold">{money(p.price)}</span>
+                          {!out && (
+                            <Badge variant={low ? "warning" : "secondary"} className="h-5 px-2 text-[11px]">
+                              {p.stock} left
+                            </Badge>
+                          )}
+                        </span>
+                      </span>
+
+                      {out && (
+                        <span className="absolute inset-0 flex items-center justify-center bg-background/60">
+                          <span className="rounded-full bg-foreground px-3 py-1 text-xs font-semibold text-background">
+                            Out of Stock
+                          </span>
+                        </span>
+                      )}
+
+                      {inCart > 0 && (
+                        <span
+                          style={ACCENT}
+                          className="absolute top-2 right-2 flex size-7 items-center justify-center rounded-full text-sm font-bold shadow-md"
+                        >
+                          {inCart}
+                        </span>
+                      )}
                     </button>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => changeQuantity(l.id, -1)}
-                        disabled={l.quantity <= 1}
-                        aria-label="Decrease quantity"
-                        className="flex size-10 items-center justify-center rounded-lg border border-gray-300 disabled:opacity-40"
-                      >
-                        <Minus className="size-4" />
-                      </button>
-                      <span className="w-10 text-center text-base font-semibold">{l.quantity}</span>
-                      <button
-                        type="button"
-                        onClick={() => changeQuantity(l.id, 1)}
-                        disabled={!l.product || l.quantity >= l.product.stock}
-                        aria-label="Increase quantity"
-                        className="flex size-10 items-center justify-center rounded-lg border border-gray-300 disabled:opacity-40"
-                      >
-                        <Plus className="size-4" />
-                      </button>
-                    </div>
-                    <p className="text-base font-bold">{l.product ? money(roundMoney(l.product.price * l.quantity)) : "-"}</p>
-                  </div>
-                  {l.problem && (
-                    <p role="alert" className="mt-1.5 text-xs font-medium text-red-600">
-                      {l.fromHeld
-                        ? `This item may no longer be available. Check before completing sale. (${l.problem})`
-                        : `${l.problem}. Reduce the quantity or remove it.`}
-                    </p>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <footer className="space-y-3 border-t bg-white px-4 py-3">
-          <dl className="space-y-1.5 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-gray-500">Subtotal</dt>
-              <dd className="font-medium">{money(subtotal)}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-gray-500">
-                <label htmlFor="discount">Discount</label>
-              </dt>
-              <dd>
-                <input
-                  id="discount"
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="0.01"
-                  value={discount}
-                  onChange={(e) => setDiscount(e.target.value)}
-                  placeholder="0"
-                  aria-invalid={Boolean(discountError)}
-                  className="h-9 w-28 rounded-lg border border-gray-300 px-2 text-right text-sm outline-none focus:border-[var(--accent)]"
-                />
-              </dd>
-            </div>
-            {discountError && lines.length > 0 && (
-              <p role="alert" className="text-right text-xs text-red-600">
-                {discountError}
-              </p>
+                  );
+                })}
+              </div>
             )}
-            <div className="flex justify-between border-t pt-2 text-xl font-bold">
-              <dt>Total</dt>
-              <dd>{money(total)}</dd>
-            </div>
-          </dl>
-
-          <div
-            role="group"
-            aria-label="Payment method"
-            className={cn(
-              "grid grid-cols-3 gap-2 rounded-2xl",
-              lines.length > 0 && !payment && "ring-2 ring-amber-400 ring-offset-2"
-            )}
-          >
-            {PAYMENT_METHODS.map((m) => {
-              const active = payment === m;
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setPayment(m)}
-                  aria-pressed={active}
-                  style={active ? { background: accent, color: accentFg } : undefined}
-                  className={cn(
-                    "h-12 rounded-xl border text-sm font-semibold",
-                    active ? "border-transparent" : "border-gray-300 bg-white text-gray-700"
-                  )}
-                >
-                  {PAYMENT_LABELS[m]}
-                </button>
-              );
-            })}
           </div>
+        </section>
 
-          {lines.length > 0 && !payment && (
-            <p className="text-center text-sm font-medium text-amber-700">Choose how the customer is paying</p>
-          )}
-
-          {saleError && (
-            <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
-              {saleError}
-            </p>
-          )}
-
-          {lines.length > 0 && (
-            <button
-              type="button"
-              onClick={holdSale}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-gray-300 bg-white text-base font-semibold text-gray-700 active:scale-[0.99]"
-            >
-              <Pause className="size-4" />
-              Hold Sale
-            </button>
-          )}
-
+        {/* Phones: a bar at the bottom that opens the cart (or the receipt) */}
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background p-3 lg:hidden">
           <button
             type="button"
-            disabled={!canComplete}
-            onClick={() => setConfirmOpen(true)}
-            style={{ background: accent, color: accentFg }}
-            className="h-16 w-full rounded-2xl text-lg font-bold shadow-sm transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={() => setCartOpen(true)}
+            style={ACCENT}
+            className="flex h-14 w-full items-center justify-between rounded-xl px-5 text-base font-semibold transition-transform active:scale-[0.98]"
           >
-            Complete Sale{lines.length > 0 && ` · ${money(total)}`}
+            <span className="flex items-center gap-2">
+              <ShoppingCart className="size-5" />
+              {receipt ? "View receipt" : itemCount === 0 ? "Cart is empty" : `View cart (${itemCount})`}
+            </span>
+            <span>{receipt ? money(receipt.total) : money(total)}</span>
           </button>
-        </footer>
-      </aside>
-
-      {toast && (
-        <div
-          role="status"
-          className="pointer-events-none fixed top-20 left-1/2 z-50 -translate-x-1/2 rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white shadow-lg"
-        >
-          {toast}
         </div>
-      )}
 
+        {cartOpen && (
+          <div className="fixed inset-0 z-30 bg-black/40 backdrop-blur-[2px] lg:hidden" onClick={() => setCartOpen(false)} aria-hidden="true" />
+        )}
+
+        {/* RIGHT: cart, or the receipt right after a sale (a fixed 320px panel; a slide-up sheet on phones) */}
+        <aside
+          className={cn(
+            "fixed inset-x-0 bottom-0 z-40 flex h-[88dvh] flex-col rounded-t-3xl border border-border bg-card shadow-lg transition-transform duration-300",
+            cartOpen ? "translate-y-0" : "translate-y-full",
+            "lg:static lg:z-auto lg:h-auto lg:w-80 lg:shrink-0 lg:translate-y-0 lg:rounded-none lg:border-y-0 lg:border-r-0 lg:shadow-none"
+          )}
+        >
+          <button
+            type="button"
+            onClick={() => setCartOpen(false)}
+            aria-label="Close cart"
+            className="absolute top-3 right-3 z-10 flex size-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground lg:hidden"
+          >
+            <X className="size-5" />
+          </button>
+
+          {receipt ? (
+            <ReceiptPanel sale={receipt} store={store} onNewSale={startNewSale} />
+          ) : (
+            <>
+              <header className="flex items-center gap-2.5 border-b border-border px-4 py-3.5">
+                <h2 className="text-base font-semibold tracking-tight">Cart</h2>
+                {itemCount > 0 && (
+                  <span style={ACCENT} className="inline-flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-xs font-bold">
+                    {itemCount}
+                  </span>
+                )}
+              </header>
+
+              <div className="flex-1 overflow-y-auto px-4 py-2">
+                {lines.length === 0 ? (
+                  <div className="flex h-full flex-col items-center justify-center gap-3 py-10 text-center text-muted-foreground">
+                    <span className="flex size-14 items-center justify-center rounded-2xl bg-muted">
+                      <ShoppingBag className="size-7" strokeWidth={1.5} />
+                    </span>
+                    <p className="text-sm">Add items to get started</p>
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-border">
+                    {lines.map((l) => (
+                      <li key={l.id} className={cn("py-3", l.fromHeld && l.problem && "-mx-2 rounded-xl bg-error-soft px-2")}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className={cn("truncate text-sm font-semibold", l.fromHeld && l.problem && "text-error-ink")}>{l.name}</p>
+                            {l.product && <p className="text-xs text-muted-foreground">{money(l.product.price)} each</p>}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeLine(l.id)}
+                            aria-label={`Remove ${l.name}`}
+                            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-error-soft hover:text-error-ink"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => changeQuantity(l.id, -1)}
+                              disabled={l.quantity <= 1}
+                              aria-label="Decrease quantity"
+                              className="flex size-9 items-center justify-center rounded-lg border border-input transition-all duration-150 hover:bg-accent active:scale-95 disabled:opacity-40"
+                            >
+                              <Minus className="size-4" />
+                            </button>
+                            <span className="w-9 text-center text-base font-semibold tabular-nums">{l.quantity}</span>
+                            <button
+                              type="button"
+                              onClick={() => changeQuantity(l.id, 1)}
+                              disabled={!l.product || l.quantity >= l.product.stock}
+                              aria-label="Increase quantity"
+                              className="flex size-9 items-center justify-center rounded-lg border border-input transition-all duration-150 hover:bg-accent active:scale-95 disabled:opacity-40"
+                            >
+                              <Plus className="size-4" />
+                            </button>
+                          </div>
+                          <p className="text-base font-bold">{l.product ? money(roundMoney(l.product.price * l.quantity)) : "-"}</p>
+                        </div>
+                        {l.problem && (
+                          <p role="alert" className="mt-1.5 text-xs font-medium text-error-ink">
+                            {l.fromHeld
+                              ? `This item may no longer be available. Check before completing sale. (${l.problem})`
+                              : `${l.problem}. Reduce the quantity or remove it.`}
+                          </p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <footer className="space-y-3 border-t border-border px-4 py-3">
+                <dl className="space-y-1.5 text-sm">
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Subtotal</dt>
+                    <dd className="font-medium">{money(subtotal)}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-muted-foreground">
+                      <label htmlFor="discount">Discount</label>
+                    </dt>
+                    <dd>
+                      <Input
+                        id="discount"
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="0.01"
+                        value={discount}
+                        onChange={(e) => setDiscount(e.target.value)}
+                        placeholder="0"
+                        aria-invalid={Boolean(discountError)}
+                        className="h-9 w-28 rounded-lg px-2.5 text-right"
+                      />
+                    </dd>
+                  </div>
+                  {discountError && lines.length > 0 && (
+                    <p role="alert" className="text-right text-xs text-error-ink">
+                      {discountError}
+                    </p>
+                  )}
+                  <div className="flex items-baseline justify-between border-t border-border pt-2.5">
+                    <dt className="text-base font-semibold">Total</dt>
+                    <dd className="text-3xl font-bold tracking-tight">{money(total)}</dd>
+                  </div>
+                </dl>
+
+                <div
+                  role="group"
+                  aria-label="Payment method"
+                  className={cn("grid grid-cols-3 gap-2 rounded-2xl", lines.length > 0 && !payment && "ring-2 ring-warning ring-offset-2 ring-offset-card")}
+                >
+                  {PAYMENT_METHODS.map((m) => {
+                    const active = payment === m;
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setPayment(m)}
+                        aria-pressed={active}
+                        style={active ? ACCENT : undefined}
+                        className={cn(
+                          "h-11 rounded-full border text-sm font-semibold transition-all duration-150 active:scale-95",
+                          active ? "border-transparent" : "border-input bg-background text-foreground hover:bg-accent"
+                        )}
+                      >
+                        {PAYMENT_LABELS[m]}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {lines.length > 0 && !payment && (
+                  <p className="text-center text-sm font-medium text-warning-ink">Choose how the customer is paying</p>
+                )}
+
+                {saleError && <FormError>{saleError}</FormError>}
+
+                {lines.length > 0 && (
+                  <Button type="button" variant="secondary" size="lg" className="w-full" onClick={holdSale}>
+                    <Pause />
+                    Hold Sale
+                  </Button>
+                )}
+
+                <Button
+                  type="button"
+                  size="lg"
+                  disabled={!canComplete}
+                  onClick={() => setConfirmOpen(true)}
+                  style={ACCENT}
+                  className="h-14 w-full text-base font-bold"
+                >
+                  Complete Sale{lines.length > 0 && ` · ${money(total)}`}
+                </Button>
+              </footer>
+            </>
+          )}
+        </aside>
+      </div>
+
+      {/* Held orders */}
       <Dialog open={heldOpen} onOpenChange={setHeldOpen}>
         <DialogContent>
           <DialogHeader>
@@ -640,43 +669,32 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
           </DialogHeader>
 
           {heldOrders.length === 0 ? (
-            <p className="py-6 text-center text-sm text-gray-500">No held orders.</p>
+            <p className="py-6 text-center text-sm text-muted-foreground">No held orders.</p>
           ) : (
             <ul className="max-h-[60dvh] space-y-3 overflow-y-auto">
               {[...heldOrders].reverse().map((order) => {
                 const count = order.items.reduce((n, i) => n + i.quantity, 0);
                 return (
-                  <li key={order.id} className="rounded-xl border border-gray-200 p-3">
+                  <li key={order.id} className="rounded-2xl border border-border p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold">
-                          Held {timeAgo(order.heldAt, now ?? new Date(order.heldAt))}
-                        </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-sm font-semibold">Held {timeAgo(order.heldAt, now ?? new Date(order.heldAt))}</p>
+                        <p className="text-xs text-muted-foreground">
                           {count} {count === 1 ? "item" : "items"}
                         </p>
-                        <p className="mt-1 truncate text-xs text-gray-500">
+                        <p className="mt-1 truncate text-xs text-muted-foreground">
                           {order.items.map((i) => `${i.name} x${i.quantity}`).join(", ")}
                         </p>
                       </div>
                       <p className="shrink-0 text-lg font-bold">{money(heldOrderTotal(order))}</p>
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => restoreHeld(order)}
-                        style={{ background: accent, color: accentFg }}
-                        className="h-11 rounded-xl text-sm font-bold"
-                      >
+                      <Button type="button" onClick={() => restoreHeld(order)} style={ACCENT}>
                         Restore
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => discardHeld(order)}
-                        className="h-11 rounded-xl border border-gray-300 text-sm font-semibold text-red-600"
-                      >
+                      </Button>
+                      <Button type="button" variant="destructive" onClick={() => discardHeld(order)}>
                         Discard
-                      </button>
+                      </Button>
                     </div>
                   </li>
                 );
@@ -686,6 +704,7 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
         </DialogContent>
       </Dialog>
 
+      {/* Confirm the sale */}
       <Dialog open={confirmOpen} onOpenChange={(open) => !submitting && setConfirmOpen(open)}>
         <DialogContent>
           <DialogHeader>
@@ -693,64 +712,51 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
             <DialogDescription>Check the items and the payment method before you confirm.</DialogDescription>
           </DialogHeader>
 
-          <ul className="max-h-[40dvh] divide-y overflow-y-auto rounded-xl border border-gray-200 px-3" aria-label="Items in this sale">
+          <ul className="max-h-[40dvh] divide-y divide-border overflow-y-auto rounded-xl border border-border px-3" aria-label="Items in this sale">
             {lines.map((l) => (
-              <li key={l.id} className="flex items-start justify-between gap-3 py-2 text-sm">
+              <li key={l.id} className="flex items-start justify-between gap-3 py-2.5 text-sm">
                 <span className="min-w-0 [overflow-wrap:anywhere]">
                   <span className="font-medium">{l.name}</span>
-                  <span className="text-gray-500"> × {l.quantity}</span>
+                  <span className="text-muted-foreground"> × {l.quantity}</span>
                 </span>
-                <span className="shrink-0 font-medium">
-                  {l.product ? money(roundMoney(l.product.price * l.quantity)) : "-"}
-                </span>
+                <span className="shrink-0 font-medium">{l.product ? money(roundMoney(l.product.price * l.quantity)) : "-"}</span>
               </li>
             ))}
           </ul>
 
-          <dl className="space-y-1 text-sm">
-            <div className="flex justify-between text-gray-600">
+          <dl className="space-y-1.5 text-sm">
+            <div className="flex justify-between text-muted-foreground">
               <dt>Subtotal</dt>
               <dd>{money(subtotal)}</dd>
             </div>
             {discountValue > 0 && (
-              <div className="flex justify-between text-gray-600">
+              <div className="flex justify-between text-muted-foreground">
                 <dt>Discount</dt>
                 <dd>-{money(discountValue)}</dd>
               </div>
             )}
             <div className="flex items-center justify-between pt-1">
-              <dt className="text-gray-600">Paid by</dt>
-              <dd
-                style={{ background: accent, color: accentFg }}
-                className="rounded-full px-3 py-1 text-sm font-bold"
-              >
+              <dt className="text-muted-foreground">Paid by</dt>
+              <dd style={ACCENT} className="rounded-full px-3 py-1 text-sm font-bold">
                 {PAYMENT_LABELS[payment]}
               </dd>
             </div>
           </dl>
 
-          <p className="py-1 text-center text-4xl font-bold">{money(total)}</p>
+          <p className="py-1 text-center text-4xl font-bold tracking-tight">{money(total)}</p>
+
           <DialogFooter>
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={() => setConfirmOpen(false)}
-              className="h-12 rounded-xl border border-gray-300 px-5 text-sm font-semibold disabled:opacity-60"
-            >
+            <Button type="button" variant="secondary" size="lg" disabled={submitting} onClick={() => setConfirmOpen(false)}>
               Cancel
-            </button>
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={submitSale}
-              style={{ background: accent, color: accentFg }}
-              className="h-12 rounded-xl px-6 text-sm font-bold disabled:opacity-60"
-            >
+            </Button>
+            <Button type="button" size="lg" disabled={submitting} onClick={submitSale} style={ACCENT}>
               {submitting ? "Processing..." : "Confirm"}
-            </button>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {confirmDialog}
     </div>
   );
 }

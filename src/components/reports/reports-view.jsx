@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Banknote, Calculator, Package, Receipt } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormError } from "@/components/auth/form-error";
+import { StatCard as BaseStatCard } from "@/components/ui/koetap/stat-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,27 +24,34 @@ const PRESET_BUTTONS = [
   ["custom", "Custom"],
 ];
 
-function StatCard({ label, value, current, previous, loading }) {
+function StatCard({ icon, label, value, current, previous, loading }) {
+  if (loading) {
+    return (
+      <Card className="gap-4">
+        <div className="flex items-center justify-between px-(--card-spacing)">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="size-9" />
+        </div>
+        <div className="space-y-2 px-(--card-spacing)">
+          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-3 w-28" />
+        </div>
+      </Card>
+    );
+  }
+
   const delta = percentChange(current, previous);
   let note;
-  let tone = "text-muted-foreground";
+  let tone;
   if (delta === null) {
     note = current > 0 ? "No sales in the previous period" : "No sales in either period";
   } else {
     note = `${delta > 0 ? "+" : ""}${delta}% vs last period`;
-    if (delta > 0) tone = "text-emerald-600";
-    else if (delta < 0) tone = "text-red-600";
+    if (delta > 0) tone = "text-success-ink";
+    else if (delta < 0) tone = "text-error-ink";
   }
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardDescription>{label}</CardDescription>
-        {loading ? <Skeleton className="h-9 w-32" /> : <CardTitle className="text-3xl">{value}</CardTitle>}
-        {loading ? <Skeleton className="mt-1 h-4 w-28" /> : <p className={cn("text-xs font-medium", tone)}>{note}</p>}
-      </CardHeader>
-    </Card>
-  );
+  return <BaseStatCard icon={icon} label={label} value={value} note={note} noteTone={tone} />;
 }
 
 function EmptyRow({ colSpan }) {
@@ -65,7 +75,7 @@ function LoadingRows({ colSpan }) {
 }
 
 // today: "YYYY-MM-DD", worked out on the server so the presets can't disagree between renders.
-export function ReportsView({ storeId, currency, accent, today }) {
+export function ReportsView({ storeId, currency, today }) {
   const [preset, setPreset] = useState("month");
   const [custom, setCustom] = useState(() => ({ from: presetRange("month", today).from, to: today }));
 
@@ -134,10 +144,11 @@ export function ReportsView({ storeId, currency, accent, today }) {
                 type="button"
                 aria-pressed={active}
                 onClick={() => setPreset(id)}
-                style={active ? { background: accent, color: "#fff" } : undefined}
                 className={cn(
-                  "h-9 rounded-lg border px-4 text-sm font-medium transition-colors",
-                  active ? "border-transparent" : "bg-background hover:bg-muted"
+                  "h-9 rounded-full border px-4 text-sm font-medium transition-all duration-150 active:scale-[0.98]",
+                  active
+                    ? "border-transparent bg-primary text-primary-foreground"
+                    : "border-input bg-background text-foreground hover:bg-accent"
                 )}
               >
                 {label}
@@ -183,17 +194,14 @@ export function ReportsView({ storeId, currency, accent, today }) {
         )}
       </div>
 
-      {failed && (
-        <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {failed}
-        </p>
-      )}
+      {failed && <FormError>{failed}</FormError>}
 
       {range && !failed && (
         <>
           {/* Summary */}
           <section aria-label="Summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
+              icon={Banknote}
               label="Total Revenue"
               loading={loading}
               value={s && money(s.revenue)}
@@ -201,6 +209,7 @@ export function ReportsView({ storeId, currency, accent, today }) {
               previous={s?.previousRevenue}
             />
             <StatCard
+              icon={Receipt}
               label="Total Transactions"
               loading={loading}
               value={s?.transactions}
@@ -208,6 +217,7 @@ export function ReportsView({ storeId, currency, accent, today }) {
               previous={s?.previousTransactions}
             />
             <StatCard
+              icon={Calculator}
               label="Average Order Value"
               loading={loading}
               value={s && money(s.avgOrderValue)}
@@ -215,6 +225,7 @@ export function ReportsView({ storeId, currency, accent, today }) {
               previous={s?.previousAvgOrderValue}
             />
             <StatCard
+              icon={Package}
               label="Items Sold"
               loading={loading}
               value={s?.itemsSold}
@@ -241,7 +252,6 @@ export function ReportsView({ storeId, currency, accent, today }) {
                   points={current.revenue.points}
                   interval={current.revenue.interval}
                   currency={currency}
-                  color={accent}
                 />
               )}
             </CardContent>
@@ -350,7 +360,7 @@ export function ReportsView({ storeId, currency, accent, today }) {
                         aria-valuemax={100}
                         className="h-3 overflow-hidden rounded-full bg-muted"
                       >
-                        <div className="h-full rounded-full" style={{ width: `${m.percentage}%`, background: accent }} />
+                        <div className="h-full rounded-full bg-foreground transition-[width] duration-500" style={{ width: `${m.percentage}%` }} />
                       </div>
                     </li>
                   ))}

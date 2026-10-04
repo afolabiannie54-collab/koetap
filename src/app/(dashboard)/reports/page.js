@@ -1,14 +1,16 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChartColumn } from "lucide-react";
+import { ChartColumn, Store as StoreIcon } from "lucide-react";
 import { auth } from "@/lib/auth";
 import connectDB from "@/lib/db";
 import Store from "@/models/Store";
 import { businessFilter } from "@/lib/api-auth";
 import { serializeStore } from "@/lib/stores";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
+import { KBadge } from "@/components/ui/koetap/KBadge";
+import { KCard } from "@/components/ui/koetap/KCard";
+import { EmptyState } from "@/components/ui/koetap/empty-state";
+import { PageHeader } from "@/components/ui/koetap/page-header";
 
 export const metadata = { title: "Reports | Koetap" };
 
@@ -19,52 +21,45 @@ export default async function ReportsIndexPage() {
   await connectDB();
   const docs = await Store.find(businessFilter(user)).sort({ createdAt: -1 });
   const stores = docs.map(serializeStore);
-  const active = stores.filter((s) => s.isActive);
 
   // One store: nothing to choose, go straight to its reports.
   if (stores.length === 1) redirect(`/stores/${stores[0].id}/reports`);
 
+  // Active stores first; inactive ones keep their history, so they stay reachable.
+  const ordered = [...stores.filter((s) => s.isActive), ...stores.filter((s) => !s.isActive)];
+
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Choose a store to see its sales reports.</p>
-      </div>
+      <PageHeader title="Reports" description="Choose a store to see its sales reports." />
 
       {stores.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed py-16 text-center">
-          <ChartColumn className="size-10 text-muted-foreground" />
-          <h2 className="text-lg font-medium">No stores yet</h2>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Reports are built from a store&apos;s sales. Create a store first.
-          </p>
-          <Button asChild>
+        <EmptyState
+          icon={StoreIcon}
+          title="No stores yet"
+          description="Reports are built from a store's sales. Create a store first."
+        >
+          <Button asChild size="lg">
             <Link href="/stores">Go to stores</Link>
           </Button>
-        </div>
+        </EmptyState>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {/* Active stores first; inactive ones keep their history, so they stay reachable */}
-          {[...active, ...stores.filter((s) => !s.isActive)].map((store) => (
-            <Card key={store.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-base">{store.name}</CardTitle>
-                  <Badge variant={store.isActive ? "default" : "secondary"}>
-                    {store.isActive ? "Active" : "Inactive"}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground">{store.address || "No address"}</CardContent>
-              <CardFooter>
-                <Button asChild size="sm">
+          {ordered.map((store) => (
+            <KCard key={store.id} hover className="gap-4">
+              <div className="flex items-start justify-between gap-3 px-(--card-spacing)">
+                <h3 className="min-w-0 text-lg font-semibold tracking-tight [overflow-wrap:anywhere]">{store.name}</h3>
+                <KBadge variant={store.isActive ? "active" : "inactive"}>{store.isActive ? "Active" : "Inactive"}</KBadge>
+              </div>
+              <p className="px-(--card-spacing) text-sm text-muted-foreground">{store.address || "No address yet"}</p>
+              <div className="mt-auto px-(--card-spacing)">
+                <Button asChild className="w-full">
                   <Link href={`/stores/${store.id}/reports`}>
-                    <ChartColumn data-icon="inline-start" />
+                    <ChartColumn />
                     View reports
                   </Link>
                 </Button>
-              </CardFooter>
-            </Card>
+              </div>
+            </KCard>
           ))}
         </div>
       )}

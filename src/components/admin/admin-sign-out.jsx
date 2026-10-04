@@ -8,10 +8,10 @@ export function AdminSignOut() {
   return (
     <Button
       variant="ghost"
-      size="icon"
+      size="icon-sm"
       aria-label="Sign out"
       title="Sign out"
-      className="text-stone-600 hover:bg-amber-100 hover:text-stone-950"
+      className="text-white/70 hover:bg-white/10 hover:text-white"
       onClick={() => signOut({ callbackUrl: "/login" })}
     >
       <LogOut />

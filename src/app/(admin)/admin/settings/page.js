@@ -1,10 +1,14 @@
+import { Settings } from "lucide-react";
+import { EmptyState } from "@/components/ui/koetap/empty-state";
+import { PageHeader } from "@/components/ui/koetap/page-header";
+
 export const metadata = { title: "Settings | Koetap Admin" };
 
 export default function AdminSettingsPage() {
   return (
-    <div className="space-y-1">
-      <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-      <p className="text-sm text-muted-foreground">Platform settings will live here. Nothing to configure yet.</p>
+    <div className="space-y-6">
+      <PageHeader title="Settings" />
+      <EmptyState icon={Settings} title="Nothing to configure yet" description="Platform settings will live here." />
     </div>
   );
 }

@@ -2,7 +2,11 @@ import Link from "next/link";
 import { getPlatformStats, getRecentActivity } from "@/lib/admin-data";
 import { formatMoney } from "@/lib/stores";
 import { SignupsChart } from "@/components/admin/signups-chart";
+import { Banknote, Building2, ShoppingBag, Store, TrendingUp, Users } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/koetap/empty-state";
+import { PageHeader } from "@/components/ui/koetap/page-header";
+import { StatCard } from "@/components/ui/koetap/stat-card";
 
 export const metadata = { title: "Overview | Koetap Admin" };
 
@@ -13,30 +17,21 @@ export default async function AdminOverviewPage() {
   const [stats, activity] = await Promise.all([getPlatformStats(), getRecentActivity(10)]);
 
   const cards = [
-    { label: "Total Businesses", value: stats.totalBusinesses },
-    { label: "Total Stores", value: stats.totalStores, note: "Active stores only" },
-    { label: "Total Sales", value: stats.totalSales },
-    { label: "Total Revenue", value: formatMoney(stats.totalRevenue) },
-    { label: "New Businesses This Month", value: stats.newBusinessesThisMonth },
-    { label: "Active Cashiers", value: stats.activeCashiers },
+    { label: "Total Businesses", value: stats.totalBusinesses, icon: Building2 },
+    { label: "Total Stores", value: stats.totalStores, note: "Active stores only", icon: Store },
+    { label: "Total Sales", value: stats.totalSales, icon: ShoppingBag },
+    { label: "Total Revenue", value: formatMoney(stats.totalRevenue), icon: Banknote },
+    { label: "New Businesses This Month", value: stats.newBusinessesThisMonth, icon: TrendingUp },
+    { label: "Active Cashiers", value: stats.activeCashiers, icon: Users },
   ];
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Platform overview</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Everything across every business on Koetap.</p>
-      </div>
+      <PageHeader title="Platform overview" description="Everything across every business on Koetap." />
 
       <section aria-label="Platform stats" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {cards.map(({ label, value, note }) => (
-          <Card key={label} className="border-amber-200">
-            <CardHeader>
-              <CardDescription>{label}</CardDescription>
-              <CardTitle className="text-3xl">{value}</CardTitle>
-              {note && <p className="text-xs text-muted-foreground">{note}</p>}
-            </CardHeader>
-          </Card>
+        {cards.map(({ label, value, note, icon }) => (
+          <StatCard key={label} icon={icon} label={label} value={value} note={note} />
         ))}
       </section>
       <p className="-mt-4 text-xs text-muted-foreground">
@@ -60,9 +55,9 @@ export default async function AdminOverviewPage() {
         </CardHeader>
         <CardContent>
           {activity.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">No sales yet.</p>
+            <EmptyState icon={ShoppingBag} title="No sales yet" description="Sales from every business will show up here." className="border-0 py-8" />
           ) : (
-            <ul className="divide-y">
+            <ul className="divide-y divide-border">
               {activity.map((s) => (
                 <li key={s._id} className="flex items-center justify-between gap-4 py-3">
                   <div className="min-w-0">

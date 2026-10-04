@@ -2,18 +2,18 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search } from "lucide-react";
+import { Ban, Package, Pencil, Plus, RotateCcw, Search, SlidersHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { FormError } from "@/components/auth/form-error";
+import { KBadge } from "@/components/ui/koetap/KBadge";
+import { useConfirm } from "@/components/ui/koetap/confirm-dialog";
+import { EmptyState } from "@/components/ui/koetap/empty-state";
+import { useToast } from "@/components/ui/koetap/toast";
+import { KTooltip } from "@/components/ui/koetap/tooltip";
 import { ProductDialog } from "@/components/dashboard/product-dialog";
 import { StockDialog } from "@/components/dashboard/stock-dialog";
 import { formatMoney } from "@/lib/stores";
@@ -21,8 +21,29 @@ import { cn } from "@/lib/utils";
 
 const ALL = "all";
 
+// Icon-only with a tooltip on larger screens; icon + words on phones, where there's no hover.
+function RowAction({ label, icon: Icon, onClick, variant = "ghost", disabled }) {
+  return (
+    <KTooltip label={label}>
+      <Button
+        size="sm"
+        variant={variant}
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={label}
+        className="md:size-9 md:px-0"
+      >
+        <Icon />
+        <span className="md:sr-only">{label}</span>
+      </Button>
+    </KTooltip>
+  );
+}
+
 export function ProductsTable({ storeId, currency, storeThreshold, products, initialLow = false }) {
   const router = useRouter();
+  const toast = useToast();
+  const [confirm, confirmDialog] = useConfirm();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState(ALL);
   const [status, setStatus] = useState(ALL);
@@ -50,7 +71,16 @@ export function ProductsTable({ storeId, currency, storeThreshold, products, ini
   }, [products, search, category, status, lowOnly]);
 
   async function toggleActive(product) {
-    if (product.isActive && !window.confirm(`Deactivate "${product.name}"? It will no longer appear on the POS.`)) {
+    if (
+      product.isActive &&
+      !(await confirm({
+        title: `Deactivate "${product.name}"?`,
+        description:
+          "It will disappear from the POS straight away, so it can't be sold. Its stock and history are kept, and you can reactivate it any time.",
+        confirmLabel: "Deactivate",
+        destructive: true,
+      }))
+    ) {
       return;
     }
 
@@ -72,36 +102,38 @@ export function ProductsTable({ storeId, currency, storeThreshold, products, ini
       setActionError(data.error || "Could not update the product");
       return;
     }
+    toast.success(`${product.name} ${product.isActive ? "deactivated" : "reactivated"}`);
     router.refresh();
   }
 
   const addButton = (
     <Button onClick={() => setProductDialog("new")}>
-      <Plus data-icon="inline-start" />
+      <Plus />
       Add Product
     </Button>
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {products.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed py-16 text-center">
-          <p className="max-w-sm text-sm text-muted-foreground">
-            No products yet. Add your first product to get started.
-          </p>
+        <EmptyState
+          icon={Package}
+          title="No products yet"
+          description="No products yet. Add your first product to get started."
+        >
           {addButton}
-        </div>
+        </EmptyState>
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative min-w-52 flex-1">
-              <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search by name or SKU"
                 aria-label="Search products"
-                className="pl-8"
+                className="pl-10"
               />
             </div>
             <Select value={category} onValueChange={setCategory}>
@@ -128,7 +160,7 @@ export function ProductsTable({ storeId, currency, storeThreshold, products, ini
               </SelectContent>
             </Select>
             <Button
-              variant={lowOnly ? "default" : "outline"}
+              variant={lowOnly ? "default" : "secondary"}
               aria-pressed={lowOnly}
               onClick={() => setLowOnly(!lowOnly)}
             >
@@ -137,72 +169,65 @@ export function ProductsTable({ storeId, currency, storeThreshold, products, ini
             <div className="ml-auto">{addButton}</div>
           </div>
 
-          {actionError && (
-            <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {actionError}
-            </p>
-          )}
+          {actionError && <FormError>{actionError}</FormError>}
 
-          <div className="rounded-xl border">
+          <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Category</TableHead>
+                  <TableHead className="hidden md:table-cell">Category</TableHead>
                   <TableHead className="text-right">Price</TableHead>
                   <TableHead className="text-right">Stock</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden sm:table-cell">Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
                       No products match your filters.
                     </TableCell>
                   </TableRow>
                 ) : (
                   filtered.map((p) => (
-                    <TableRow
-                      key={p.id}
-                      className={cn(p.isLowStock && "bg-amber-50 hover:bg-amber-100/70", !p.isActive && "opacity-60")}
-                    >
-                      <TableCell>
+                    <TableRow key={p.id} className={cn(!p.isActive && "opacity-60")}>
+                      {/* Low stock rows get an amber edge on the left */}
+                      <TableCell className={cn(p.isLowStock && "shadow-[inset_4px_0_0_var(--warning)]")}>
                         <div className="font-medium">{p.name}</div>
-                        {p.sku && <div className="text-xs text-muted-foreground">SKU {p.sku}</div>}
+                        <div className="text-xs text-muted-foreground">
+                          <span className="md:hidden">{p.category}</span>
+                          {p.category && p.sku && <span className="md:hidden"> · </span>}
+                          {p.sku && `SKU ${p.sku}`}
+                        </div>
                       </TableCell>
-                      <TableCell>{p.category || <span className="text-muted-foreground">-</span>}</TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {p.category || <span className="text-muted-foreground">-</span>}
+                      </TableCell>
                       <TableCell className="text-right">{formatMoney(p.price, currency)}</TableCell>
                       <TableCell className="text-right">
-                        <span className={cn(p.isLowStock && "font-semibold text-amber-700")}>{p.stock}</span>
+                        <span className={cn(p.isLowStock && "font-semibold text-warning-ink")}>{p.stock}</span>
                         {p.isLowStock && (
-                          <Badge variant="outline" className="ml-2 border-amber-400 text-amber-700">
+                          <Badge variant="warning" className="ml-2">
                             {p.stock === 0 ? "Out of stock" : "Low stock"}
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell>
-                        <Badge variant={p.isActive ? "default" : "secondary"}>
-                          {p.isActive ? "Active" : "Inactive"}
-                        </Badge>
+                      <TableCell className="hidden sm:table-cell">
+                        <KBadge variant={p.isActive ? "active" : "inactive"}>{p.isActive ? "Active" : "Inactive"}</KBadge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex justify-end gap-1.5">
-                          <Button size="sm" variant="outline" onClick={() => setProductDialog(p)}>
-                            Edit
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => setStockProduct(p)}>
-                            Adjust Stock
-                          </Button>
-                          <Button
-                            size="sm"
+                        <div className="flex justify-end gap-1">
+                          <RowAction label="Edit" icon={Pencil} onClick={() => setProductDialog(p)} />
+                          <RowAction label="Adjust stock" icon={SlidersHorizontal} onClick={() => setStockProduct(p)} />
+                          <RowAction
+                            label={p.isActive ? "Deactivate" : "Reactivate"}
+                            icon={p.isActive ? Ban : RotateCcw}
                             variant={p.isActive ? "destructive" : "secondary"}
                             disabled={busyId === p.id}
                             onClick={() => toggleActive(p)}
-                          >
-                            {p.isActive ? "Deactivate" : "Reactivate"}
-                          </Button>
+                          />
                         </div>
                       </TableCell>
                     </TableRow>
@@ -226,6 +251,7 @@ export function ProductsTable({ storeId, currency, storeThreshold, products, ini
       {stockProduct && (
         <StockDialog storeId={storeId} product={stockProduct} onClose={() => setStockProduct(null)} />
       )}
+      {confirmDialog}
     </div>
   );
 }

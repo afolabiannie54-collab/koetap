@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { FormError } from "@/components/auth/form-error";
+import { useToast } from "@/components/ui/koetap/toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -35,6 +37,7 @@ function Field({ id, label, error, hint, children }) {
 // Add (no member) or edit (member given). Mounted only while open, so it starts fresh every time.
 export function StaffDialog({ storeId, member, onClose }) {
   const router = useRouter();
+  const toast = useToast();
   const editing = Boolean(member);
   const [form, setForm] = useState({
     name: member?.name ?? "",
@@ -93,6 +96,7 @@ export function StaffDialog({ storeId, member, onClose }) {
       return;
     }
 
+    toast.success(editing ? `${form.name.trim()} updated` : `${form.name.trim()} added`);
     onClose();
     router.refresh();
   }
@@ -154,12 +158,13 @@ export function StaffDialog({ storeId, member, onClose }) {
           </Field>
 
           {errors.form && (
-            <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {errors.form}
-            </p>
+            <FormError>{errors.form}</FormError>
           )}
 
           <DialogFooter>
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
             <Button type="submit" disabled={loading}>
               {loading ? "Saving..." : editing ? "Save changes" : "Add cashier"}
             </Button>

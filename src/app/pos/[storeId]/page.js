@@ -1,5 +1,7 @@
+import { StoreIcon } from "lucide-react";
 import { getPosAccess, loadPosProducts } from "@/lib/pos-data";
 import { PosScreen } from "@/components/pos/pos-screen";
+import { EmptyState } from "@/components/ui/koetap/empty-state";
 
 export const metadata = { title: "POS | Koetap" };
 
@@ -9,11 +11,13 @@ export default async function PosPage({ params }) {
 
   if (!store.isActive) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-        <div className="max-w-sm rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-gray-200">
-          <h1 className="text-lg font-semibold text-gray-900">{store.name} is inactive</h1>
-          <p className="mt-2 text-sm text-gray-500">Sales are turned off for this store. Contact your store owner.</p>
-        </div>
+      <main className="flex min-h-screen items-center justify-center bg-muted px-4">
+        <EmptyState
+          icon={StoreIcon}
+          title={`${store.name} is inactive`}
+          description="Sales are turned off for this store. Contact your store owner."
+          className="max-w-md border-solid bg-card"
+        />
       </main>
     );
   }

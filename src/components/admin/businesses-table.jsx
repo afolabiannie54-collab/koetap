@@ -2,11 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { Building, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useConfirm } from "@/components/ui/koetap/confirm-dialog";
+import { useToast } from "@/components/ui/koetap/toast";
+import { EmptyState } from "@/components/ui/koetap/empty-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatMoney } from "@/lib/stores";
@@ -14,10 +17,18 @@ import { cn } from "@/lib/utils";
 
 const formatDate = (d) => new Date(d).toLocaleDateString("en-GB", { dateStyle: "medium", timeZone: "UTC" });
 
-const SUSPEND_WARNING = (name) =>
-  `Suspend "${name}"?\n\nThis switches off all of its stores and cashiers, and its owner is locked out until you reinstate it.`;
-const REINSTATE_WARNING = (name) =>
-  `Reinstate "${name}"?\n\nThe owner can sign in again. The stores and cashiers this suspension switched off are switched back on. Anything the owner had turned off themselves stays off.`;
+const SUSPEND_PROMPT = (name) => ({
+  title: `Suspend "${name}"?`,
+  description: "This switches off all of its stores and cashiers, and its owner is locked out until you reinstate it.",
+  confirmLabel: "Suspend",
+  destructive: true,
+});
+const REINSTATE_PROMPT = (name) => ({
+  title: `Reinstate "${name}"?`,
+  description:
+    "The owner can sign in again. The stores and cashiers this suspension switched off are switched back on. Anything the owner had turned off themselves stays off.",
+  confirmLabel: "Reinstate",
+});
 
 export function BusinessesTable() {
   const [searchInput, setSearchInput] = useState("");
@@ -25,7 +36,8 @@ export function BusinessesTable() {
   const [reloads, setReloads] = useState(0);
   const [result, setResult] = useState({ key: null });
   const [busyId, setBusyId] = useState(null);
-  const [message, setMessage] = useState({ type: "", text: "" });
+  const toast = useToast();
+  const [confirm, confirmDialog] = useConfirm();
   const debounce = useRef(null);
 
   const key = `${params.search}|${params.plan}|${params.status}|${params.page}|${reloads}`;
@@ -66,9 +78,8 @@ export function BusinessesTable() {
   }
 
   async function toggleActive(b) {
-    if (!window.confirm(b.isActive ? SUSPEND_WARNING(b.name) : REINSTATE_WARNING(b.name))) return;
+    if (!(await confirm(b.isActive ? SUSPEND_PROMPT(b.name) : REINSTATE_PROMPT(b.name)))) return;
 
-    setMessage({ type: "", text: "" });
     setBusyId(b._id);
     const res = await fetch(`/api/admin/businesses/${b._id}`, {
       method: "PATCH",
@@ -79,15 +90,14 @@ export function BusinessesTable() {
     setBusyId(null);
 
     if (!res.ok) {
-      setMessage({ type: "error", text: data.error || "Could not update the business" });
+      toast.error(data.error || "Could not update the business");
       return;
     }
-    setMessage({
-      type: "success",
-      text: b.isActive
+    toast.success(
+      b.isActive
         ? `${b.name} suspended. ${data.cascade.stores} stores and ${data.cascade.cashiers} cashiers switched off.`
-        : `${b.name} reinstated. ${data.restored.stores} stores and ${data.restored.cashiers} cashiers switched back on.`,
-    });
+        : `${b.name} reinstated. ${data.restored.stores} stores and ${data.restored.cashiers} cashiers switched back on.`
+    );
     setReloads((n) => n + 1);
   }
 
@@ -95,13 +105,13 @@ export function BusinessesTable() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-60 flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={searchInput}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search by business name or owner email"
             aria-label="Search businesses"
-            className="pl-8"
+            className="pl-9"
           />
         </div>
         <Select value={params.plan} onValueChange={(plan) => setParams((p) => ({ ...p, plan, page: 1 }))}>
@@ -126,24 +136,12 @@ export function BusinessesTable() {
         </Select>
       </div>
 
-      {message.text && (
-        <p
-          role={message.type === "error" ? "alert" : "status"}
-          className={cn(
-            "rounded-lg px-3 py-2 text-sm",
-            message.type === "error" ? "bg-destructive/10 text-destructive" : "bg-emerald-50 text-emerald-700"
-          )}
-        >
-          {message.text}
-        </p>
-      )}
-
       {current?.error ? (
-        <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p role="alert" className="rounded-xl bg-error-soft px-3 py-2 text-sm text-error-ink">
           {current.error}
         </p>
       ) : (
-        <div className="rounded-xl border bg-card">
+        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           <Table>
             <TableHeader>
               <TableRow>
@@ -169,13 +167,13 @@ export function BusinessesTable() {
                 ))
               ) : current.businesses.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
-                    No businesses match.
+                  <TableCell colSpan={9} className="p-4">
+                    <EmptyState icon={Building} title="No businesses match" description="Try a different search or filter." className="border-0 py-8" />
                   </TableCell>
                 </TableRow>
               ) : (
                 current.businesses.map((b) => (
-                  <TableRow key={b._id} className={cn(!b.isActive && "bg-red-50/50")}>
+                  <TableRow key={b._id} className={cn(!b.isActive && "bg-error-soft/50")}>
                     <TableCell className="font-medium whitespace-normal [overflow-wrap:anywhere]">
                       {b.name}
                       {/* On narrower screens the other columns are summarised here */}
@@ -198,7 +196,7 @@ export function BusinessesTable() {
                     </TableCell>
                     <TableCell className="hidden min-[1300px]:table-cell whitespace-nowrap">{formatDate(b.createdAt)}</TableCell>
                     <TableCell>
-                      <Badge variant={b.isActive ? "outline" : "destructive"}>{b.isActive ? "Active" : "Inactive"}</Badge>
+                      <Badge variant={b.isActive ? "default" : "destructive"}>{b.isActive ? "Active" : "Inactive"}</Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col items-end gap-1.5 sm:flex-row sm:justify-end">
@@ -248,6 +246,8 @@ export function BusinessesTable() {
           </div>
         </div>
       )}
+
+      {confirmDialog}
     </div>
   );
 }

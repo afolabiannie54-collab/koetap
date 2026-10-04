@@ -1,5 +1,6 @@
 import Link from "next/link";
 import mongoose from "mongoose";
+import { AlertTriangle, Banknote, Package, Receipt, Users } from "lucide-react";
 import connectDB from "@/lib/db";
 import Product from "@/models/Product";
 import Sale from "@/models/Sale";
@@ -7,7 +8,9 @@ import User from "@/models/User";
 import { getStorePageData } from "@/lib/store-page";
 import { lowStockExpr } from "@/lib/products";
 import { formatMoney } from "@/lib/stores";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatCard } from "@/components/ui/koetap/stat-card";
+
+const LINK_CLASS = "block rounded-2xl outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground";
 
 export default async function StoreOverviewPage({ params }) {
   const { storeId } = await params;
@@ -27,49 +30,27 @@ export default async function StoreOverviewPage({ params }) {
     User.countDocuments({ role: "cashier", storeId: id, businessId: store.businessId, isActive: true }),
   ]);
 
-  const stats = [
-    { label: "Active Products", value: products },
-    { label: "Total Sales", value: sales },
-    { label: "Total Revenue", value: formatMoney(revenue[0]?.total ?? 0, store.currency) },
-  ];
-
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {stats.map(({ label, value }) => (
-        <Card key={label}>
-          <CardHeader>
-            <CardDescription>{label}</CardDescription>
-            <CardTitle className="text-3xl">{value}</CardTitle>
-          </CardHeader>
-        </Card>
-      ))}
+      <StatCard icon={Package} label="Active Products" value={products} />
+      <StatCard icon={Receipt} label="Total Sales" value={sales} />
+      <StatCard icon={Banknote} label="Total Revenue" value={formatMoney(revenue[0]?.total ?? 0, store.currency)} />
 
       {/* Clickable: opens the products list already filtered to low stock */}
-      <Link
-        href={`/stores/${store.id}/products?low=1`}
-        className="rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
-        <Card className="h-full transition-colors hover:bg-muted/50">
-          <CardHeader>
-            <CardDescription>Low Stock Items</CardDescription>
-            <CardTitle className={lowStock > 0 ? "text-3xl text-amber-600" : "text-3xl"}>
-              {lowStock}
-            </CardTitle>
-          </CardHeader>
-        </Card>
+      <Link href={`/stores/${store.id}/products?low=1`} className={LINK_CLASS}>
+        <StatCard
+          hover
+          icon={AlertTriangle}
+          label="Low Stock Items"
+          value={<span className={lowStock > 0 ? "text-warning" : undefined}>{lowStock}</span>}
+          note={lowStock > 0 ? "View items running low" : "Everything is well stocked"}
+          className="h-full"
+        />
       </Link>
 
       {/* Clickable: opens the Staff tab */}
-      <Link
-        href={`/stores/${store.id}/staff`}
-        className="rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
-        <Card className="h-full transition-colors hover:bg-muted/50">
-          <CardHeader>
-            <CardDescription>Active Cashiers</CardDescription>
-            <CardTitle className="text-3xl">{cashiers}</CardTitle>
-          </CardHeader>
-        </Card>
+      <Link href={`/stores/${store.id}/staff`} className={LINK_CLASS}>
+        <StatCard hover icon={Users} label="Active Cashiers" value={cashiers} note="Manage staff" className="h-full" />
       </Link>
     </div>
   );

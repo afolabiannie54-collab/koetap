@@ -2,6 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { FormError } from "@/components/auth/form-error";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 export default function SetupPage() {
   const router = useRouter();
@@ -32,41 +37,29 @@ export default function SetupPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-200">
-        <h1 className="text-2xl font-semibold text-gray-900">One last step</h1>
-        <p className="mt-1 text-sm text-gray-500">Tell us about your business to finish setting up.</p>
+    <AuthShell heading="Almost there" subtext="What's your business called?">
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="space-y-2">
+          <Label htmlFor="businessName" className="sr-only">
+            Business name
+          </Label>
+          <Input
+            id="businessName"
+            required
+            autoFocus
+            placeholder="e.g. Ada's Provisions"
+            value={businessName}
+            onChange={(e) => setBusinessName(e.target.value)}
+            className="h-14 rounded-2xl px-5 text-lg md:text-lg"
+          />
+        </div>
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <div>
-            <label htmlFor="businessName" className="block text-sm font-medium text-gray-700">
-              What&apos;s your business name?
-            </label>
-            <input
-              id="businessName"
-              required
-              autoFocus
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-            />
-          </div>
+        {error && <FormError>{error}</FormError>}
 
-          {error && (
-            <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
-              {error}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
-          >
-            {loading ? "Finishing..." : "Finish Setup"}
-          </button>
-        </form>
-      </div>
-    </main>
+        <Button type="submit" size="lg" className="h-14 w-full text-base" disabled={loading}>
+          {loading ? "Finishing..." : "Finish Setup"}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

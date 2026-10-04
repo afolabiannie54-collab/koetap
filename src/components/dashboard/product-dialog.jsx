@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { FormError } from "@/components/auth/form-error";
+import { useToast } from "@/components/ui/koetap/toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -47,6 +49,7 @@ function validate(form) {
 // Add (no product) or edit (product given). Mounted only while open, so it starts fresh every time.
 export function ProductDialog({ storeId, product, storeThreshold, categories, onClose }) {
   const router = useRouter();
+  const toast = useToast();
   const editing = Boolean(product);
   const [form, setForm] = useState({
     name: product?.name ?? "",
@@ -85,6 +88,7 @@ export function ProductDialog({ storeId, product, storeThreshold, categories, on
       return;
     }
 
+    toast.success(editing ? `${form.name.trim()} updated` : `${form.name.trim()} added`);
     onClose();
     router.refresh();
   }
@@ -180,12 +184,13 @@ export function ProductDialog({ storeId, product, storeThreshold, categories, on
           </div>
 
           {errors.form && (
-            <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {errors.form}
-            </p>
+            <FormError>{errors.form}</FormError>
           )}
 
           <DialogFooter>
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
             <Button type="submit" disabled={loading}>
               {loading ? "Saving..." : editing ? "Save changes" : "Add product"}
             </Button>

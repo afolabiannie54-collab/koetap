@@ -2,7 +2,9 @@ import connectDB from "@/lib/db";
 import InventoryLog from "@/models/InventoryLog";
 import "@/models/Product";
 import "@/models/User";
+import { ClipboardList } from "lucide-react";
 import { getStorePageData } from "@/lib/store-page";
+import { EmptyState } from "@/components/ui/koetap/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
@@ -30,15 +32,17 @@ export default async function InventoryLogPage({ params }) {
 
   if (logs.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed py-16 text-center text-sm text-muted-foreground">
-        No stock changes yet. Adding products, restocking and sales will show up here.
-      </div>
+      <EmptyState
+        icon={ClipboardList}
+        title="No stock changes yet"
+        description="Adding products, restocking and sales will show up here."
+      />
     );
   }
 
   return (
     <div className="space-y-3">
-      <div className="rounded-xl border">
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>
@@ -63,7 +67,7 @@ export default async function InventoryLogPage({ params }) {
                 <TableCell
                   className={cn(
                     "text-right font-medium",
-                    log.delta > 0 ? "text-emerald-600" : "text-red-600"
+                    log.delta > 0 ? "text-success-ink" : "text-error-ink"
                   )}
                 >
                   {log.delta > 0 ? `+${log.delta}` : log.delta}
