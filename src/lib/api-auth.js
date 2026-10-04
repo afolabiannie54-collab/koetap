@@ -4,6 +4,10 @@ import { auth } from "@/lib/auth";
 import connectDB from "@/lib/db";
 import Store from "@/models/Store";
 
+// A suspended business can't use the app, whatever session cookies it still holds.
+const suspended = () =>
+  NextResponse.json({ error: "Your account has been suspended. Contact support." }, { status: 403 });
+
 // Resolves the signed-in owner/superadmin, or a ready-to-return error response.
 export async function requireOwner() {
   const session = await auth();
@@ -15,6 +19,7 @@ export async function requireOwner() {
   if (user.role !== "owner" && user.role !== "superadmin") {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
+  if (user.suspended) return { error: suspended() };
   if (user.role === "owner" && !user.businessId) {
     return { error: NextResponse.json({ error: "No business linked to this account" }, { status: 403 }) };
   }
@@ -47,6 +52,7 @@ export async function authorizeStore(storeId, { write = false } = {}) {
   if (!allowed.includes(user.role)) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
+  if (user.suspended) return { error: suspended() };
 
   if (!mongoose.isValidObjectId(storeId)) {
     return { error: NextResponse.json({ error: "Store not found" }, { status: 404 }) };

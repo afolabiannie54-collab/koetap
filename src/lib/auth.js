@@ -6,6 +6,7 @@ import { MongoClient } from "mongodb";
 import bcrypt from "bcryptjs";
 import connectDB from "@/lib/db";
 import User from "@/models/User";
+import { isBusinessSuspended } from "@/lib/business-status";
 
 const uri = process.env.MONGODB_URI;
 
@@ -26,6 +27,10 @@ class GoogleAccountError extends CredentialsSignin {
 
 class DeactivatedError extends CredentialsSignin {
   code = "deactivated";
+}
+
+class SuspendedError extends CredentialsSignin {
+  code = "suspended";
 }
 
 export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
@@ -58,7 +63,12 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         const valid = await bcrypt.compare(password, user.password);
         if (!valid) return null;
 
-        // Checked after the password so the message is only shown to someone who knows it.
+        // Checked after the password so these messages are only shown to someone who knows it.
+        // A suspended business turns its cashiers off too, and they should hear "suspended",
+        // not "ask your owner". Owners may still sign in: they're sent to /suspended afterwards.
+        if (user.role !== "superadmin" && (user.role === "cashier" || !user.isActive)) {
+          if (await isBusinessSuspended(user.businessId, { fresh: true })) throw new SuspendedError();
+        }
         if (!user.isActive) throw new DeactivatedError();
 
         return { id: user._id.toString(), name: user.name, email: user.email };
@@ -98,12 +108,21 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         token.storeId = dbUser?.storeId?.toString() ?? null;
         // Users created before this flag existed have no value; a business means they're set up.
         token.setupComplete = dbUser?.setupComplete ?? Boolean(dbUser?.businessId);
-      } else if (token.role === "cashier" && token.id) {
-        // Cashiers are deactivated by their owner, and a cookie issued earlier would otherwise
-        // keep working until it expires. Returning null ends the session.
-        await connectDB();
-        const dbUser = await User.findById(token.id).select("isActive").lean();
-        if (!dbUser || dbUser.isActive === false) return null;
+        token.suspended =
+          token.role !== "superadmin" && (await isBusinessSuspended(token.businessId, { fresh: true }));
+      } else {
+        if (token.role === "cashier" && token.id) {
+          // Cashiers are deactivated by their owner, and a cookie issued earlier would otherwise
+          // keep working until it expires. Returning null ends the session.
+          await connectDB();
+          const dbUser = await User.findById(token.id).select("isActive").lean();
+          if (!dbUser || dbUser.isActive === false) return null;
+        }
+        // Re-checked on every session read so suspending a business takes effect straight away.
+        // The proxy and the API routes act on this flag.
+        if (token.role !== "superadmin") {
+          token.suspended = await isBusinessSuspended(token.businessId);
+        }
       }
       return token;
     },
@@ -113,6 +132,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
       session.user.businessId = token.businessId;
       session.user.storeId = token.storeId;
       session.user.setupComplete = token.setupComplete;
+      session.user.suspended = Boolean(token.suspended);
       return session;
     },
   },

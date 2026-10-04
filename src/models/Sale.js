@@ -30,5 +30,8 @@ const SaleSchema = new mongoose.Schema(
 
 // Every report filters by store and date range, and sorts by date.
 SaleSchema.index({ storeId: 1, createdAt: -1 });
+// The admin dashboard looks sales up by business, and lists the newest across the platform.
+SaleSchema.index({ businessId: 1, createdAt: -1 });
+SaleSchema.index({ createdAt: -1 });
 
 export default mongoose.models.Sale || mongoose.model("Sale", SaleSchema);

@@ -7,6 +7,8 @@ const BusinessSchema = new mongoose.Schema(
     email: { type: String },
     phone: { type: String },
     plan: { type: String, default: "free" },
+    // Switched off by the platform admin. Missing on older businesses, which count as active.
+    isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

@@ -12,6 +12,7 @@ const DEACTIVATED_MESSAGE = "Your account has been deactivated. Contact your sto
 const CREDENTIALS_ERRORS = {
   google_account: "This account was created with Google. Please sign in with Google instead.",
   deactivated: DEACTIVATED_MESSAGE,
+  suspended: "Your account has been suspended. Contact support.",
 };
 
 const inputClass =

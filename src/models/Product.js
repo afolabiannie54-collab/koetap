@@ -16,4 +16,7 @@ const ProductSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Products are always read per store.
+ProductSchema.index({ storeId: 1 });
+
 export default mongoose.models.Product || mongoose.model("Product", ProductSchema);

@@ -21,6 +21,16 @@ export default auth((req) => {
   const role = user?.role;
   const home = HOME[role];
 
+  // A suspended business can't use the app at all: every page is /suspended until it's reinstated.
+  if (user?.suspended) {
+    return pathname === "/suspended"
+      ? NextResponse.next()
+      : NextResponse.redirect(new URL("/suspended", req.url));
+  }
+  if (pathname === "/suspended") {
+    return NextResponse.redirect(new URL(home ?? "/login", req.url));
+  }
+
   // Google sign-ups must name their business before using anything else.
   // (=== false so sessions issued before this flag existed aren't bounced.)
   if (user && user.setupComplete === false) {
