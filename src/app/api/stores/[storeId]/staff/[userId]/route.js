@@ -66,6 +66,8 @@ export async function PATCH(request, { params }) {
   if (data.password) data.password = await bcrypt.hash(data.password, 12);
 
   user.set(data);
+  // Switching a cashier on or off by hand is the owner's decision, so a business suspension can no longer undo it.
+  if (data.isActive !== undefined) user.suspendedByBusiness = undefined;
   try {
     await user.save();
   } catch (err) {
@@ -90,7 +92,7 @@ export async function DELETE(_request, { params }) {
 
   const user = await User.findOneAndUpdate(
     staffQuery(store, userId),
-    { $set: { isActive: false } },
+    { $set: { isActive: false }, $unset: { suspendedByBusiness: "" } }, // let go on purpose: stays off
     { returnDocument: "after" }
   ).select("-password");
   if (!user) return notFound();

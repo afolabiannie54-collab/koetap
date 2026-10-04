@@ -17,7 +17,7 @@ const formatDate = (d) => new Date(d).toLocaleDateString("en-GB", { dateStyle: "
 const SUSPEND_WARNING = (name) =>
   `Suspend "${name}"?\n\nThis switches off all of its stores and cashiers, and its owner is locked out until you reinstate it.`;
 const REINSTATE_WARNING = (name) =>
-  `Reinstate "${name}"?\n\nThe owner can sign in again. Its stores and cashiers stay switched off until the owner turns them back on.`;
+  `Reinstate "${name}"?\n\nThe owner can sign in again. The stores and cashiers this suspension switched off are switched back on. Anything the owner had turned off themselves stays off.`;
 
 export function BusinessesTable() {
   const [searchInput, setSearchInput] = useState("");
@@ -86,7 +86,7 @@ export function BusinessesTable() {
       type: "success",
       text: b.isActive
         ? `${b.name} suspended. ${data.cascade.stores} stores and ${data.cascade.cashiers} cashiers switched off.`
-        : `${b.name} reinstated.`,
+        : `${b.name} reinstated. ${data.restored.stores} stores and ${data.restored.cashiers} cashiers switched back on.`,
     });
     setReloads((n) => n + 1);
   }

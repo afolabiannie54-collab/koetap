@@ -48,8 +48,8 @@ export function BusinessActions({ businessId, name, isActive, plan }) {
                 )
               : update(
                   { isActive: true },
-                  `Reinstate "${name}"?\n\nThe owner can sign in again. Its stores and cashiers stay switched off until the owner turns them back on.`,
-                  () => "Reinstated. The owner can sign in again."
+                  `Reinstate "${name}"?\n\nThe owner can sign in again. The stores and cashiers this suspension switched off are switched back on. Anything the owner had turned off themselves stays off.`,
+                  (d) => `Reinstated. ${d.restored.stores} stores and ${d.restored.cashiers} cashiers switched back on.`
                 )
           }
         >

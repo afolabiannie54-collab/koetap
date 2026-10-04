@@ -39,6 +39,8 @@ export async function PATCH(request, { params }) {
   if (!store) return notFound();
 
   store.set(data);
+  // Turning a store on or off by hand is the owner's decision, so a business suspension can no longer undo it.
+  if (data.isActive !== undefined) store.suspendedByBusiness = undefined;
   await store.save();
   return NextResponse.json({ store });
 }
@@ -54,6 +56,7 @@ export async function DELETE(_request, { params }) {
   if (!store) return notFound();
 
   store.isActive = false;
+  store.suspendedByBusiness = undefined; // closed on purpose: a reinstatement must not reopen it
   await store.save();
   return NextResponse.json({ message: "Store deactivated", store });
 }

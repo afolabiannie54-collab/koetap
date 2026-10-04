@@ -11,6 +11,9 @@ const StoreSchema = new mongoose.Schema(
     receiptFooter: { type: String },
     lowStockThreshold: { type: Number, default: 5 },
     isActive: { type: Boolean, default: true },
+    // Set when a business suspension switched this off, so reinstating restores exactly these.
+    // Never set on anything the owner had already turned off themselves.
+    suspendedByBusiness: { type: Boolean },
   },
   { timestamps: true }
 );

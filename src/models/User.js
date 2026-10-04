@@ -9,6 +9,9 @@ const UserSchema = new mongoose.Schema(
     businessId: { type: mongoose.Schema.Types.ObjectId, ref: "Business", default: null },
     storeId: { type: mongoose.Schema.Types.ObjectId, ref: "Store", default: null },
     isActive: { type: Boolean, default: true },
+    // Set when a business suspension switched this off, so reinstating restores exactly these.
+    // Never set on anything the owner had already turned off themselves.
+    suspendedByBusiness: { type: Boolean },
     // False for Google sign-ups until they name their business on /setup.
     setupComplete: { type: Boolean, default: false },
   },
