@@ -38,14 +38,33 @@ export async function POST(request, { params }) {
   // Always lock products in the same order so concurrent sales can't deadlock each other.
   const items = [...data.items].sort((a, b) => a.productId.localeCompare(b.productId));
 
+  // A retry or double tap carries the same reference. If that sale already exists, hand it back.
+  const findExisting = () =>
+    data.clientRef ? Sale.findOne({ storeId: store._id, clientRef: data.clientRef }) : null;
+  const already = await findExisting();
+  if (already) return NextResponse.json({ sale: already, replayed: true }, { status: 200 });
+
   const session = await mongoose.startSession();
   try {
     let sale;
+    let replayed = false;
 
     // All or nothing: if any line can't be fulfilled, stock for the other lines is put back
     // and no sale or log entry is written. withTransaction may re-run this callback on a
     // transient conflict, so it must start from a clean slate every time.
     await session.withTransaction(async () => {
+      replayed = false;
+
+      // Two copies of one sale can be in flight at once. Whichever commits second finds the first here.
+      if (data.clientRef) {
+        const duplicate = await Sale.findOne({ storeId: store._id, clientRef: data.clientRef }).session(session);
+        if (duplicate) {
+          sale = duplicate;
+          replayed = true;
+          return;
+        }
+      }
+
       const taken = [];
       const failures = [];
 
@@ -116,6 +135,7 @@ export async function POST(request, { params }) {
         total: roundMoney(subtotal - data.discount),
         paymentMethod: data.paymentMethod,
         note: data.note || undefined,
+        clientRef: data.clientRef || undefined,
       });
       await newSale.save({ session });
 
@@ -136,8 +156,17 @@ export async function POST(request, { params }) {
       sale = newSale;
     });
 
-    return NextResponse.json({ sale }, { status: 201 });
+    return NextResponse.json(
+      { sale, ...(replayed ? { replayed: true } : {}) },
+      { status: replayed ? 200 : 201 }
+    );
   } catch (err) {
+    // The loser of a race between two copies of one sale ends up here, either on the unique index or
+    // with "not enough stock" because the winner already took it. Either way the sale exists: return it.
+    if (data.clientRef && (err?.code === 11000 || err instanceof SaleError)) {
+      const existing = await findExisting();
+      if (existing) return NextResponse.json({ sale: existing, replayed: true }, { status: 200 });
+    }
     if (err instanceof SaleError) {
       return NextResponse.json({ error: err.message, ...err.extra }, { status: 400 });
     }

@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ReceiptView, StoreBrand } from "@/components/pos/receipt-view";
-import { PAYMENT_LABELS, PAYMENT_METHODS, readableTextColor, roundMoney } from "@/lib/pos";
+import { PAYMENT_LABELS, PAYMENT_METHODS, newSaleKey, readableTextColor, roundMoney } from "@/lib/pos";
 import { formatMoney } from "@/lib/stores";
 import {
   addHeldOrder,
@@ -54,11 +54,17 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [discount, setDiscount] = useState("");
-  const [payment, setPayment] = useState("cash");
+  // Nothing is pre-selected: a transfer sale must never be recorded as cash just because nobody tapped.
+  const [payment, setPayment] = useState(null);
   const [cartOpen, setCartOpen] = useState(false); // the bottom sheet on small screens
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [saleError, setSaleError] = useState("");
+  // Stops a second tap in the same instant, before React has had time to disable the button.
+  const submitLock = useRef(false);
+  // The reference sent with the current sale. It is kept while we don't know whether a sale went
+  // through (dropped connection), so tapping again can't charge twice.
+  const attempt = useRef(null);
   const [receipt, setReceipt] = useState(null);
 
   // Held sales: kept in this browser only. The raw string is what useSyncExternalStore watches.
@@ -155,38 +161,60 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
   }
 
   async function submitSale() {
+    if (submitLock.current) return;
+    submitLock.current = true;
     setSubmitting(true);
     setSaleError("");
 
-    let res;
+    // Prices are not sent: the server charges the product's current price.
+    const body = {
+      items: lines.map((l) => ({ productId: l.id, quantity: l.quantity })),
+      paymentMethod: payment,
+      discount: discountValue,
+    };
+    // One reference per distinct sale. Retrying the same cart reuses it; changing the cart starts a new one.
+    const signature = JSON.stringify(body);
+    if (attempt.current?.signature !== signature) attempt.current = { key: newSaleKey(), signature };
+
+    let res = null;
     let data = {};
+    // Don't leave the cashier staring at "Processing..." if the network or database stalls.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
     try {
       res = await fetch(`/api/pos/${store.id}/sales`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // Prices are not sent: the server charges the product's current price.
-        body: JSON.stringify({
-          items: lines.map((l) => ({ productId: l.id, quantity: l.quantity })),
-          paymentMethod: payment,
-          discount: discountValue,
-        }),
+        body: JSON.stringify({ ...body, clientRef: attempt.current.key }),
+        signal: controller.signal,
       });
       data = await res.json().catch(() => ({}));
     } catch {
       res = null;
+    } finally {
+      clearTimeout(timer);
     }
+    submitLock.current = false;
     setSubmitting(false);
     setConfirmOpen(false);
 
-    if (!res || !res.ok) {
-      // The cart stays exactly as it was so the cashier can fix it.
+    // We don't know if it went through (no answer, or a gateway error): keep the reference so a retry is safe.
+    if (!res || res.status >= 500) {
       setSaleError(
-        !res ? "Couldn't reach the server. Check your connection and try again." : data.error || "Could not complete the sale"
+        "The connection is slow or dropped, so we can't tell if this sale went through. Tap Complete Sale again. It will not be charged twice."
       );
-      if (res) refreshProducts(); // stock may have changed under us
       return;
     }
 
+    if (!res.ok) {
+      // The server answered no, so nothing was recorded. The cart stays as it was so the cashier can fix it.
+      attempt.current = null;
+      setSaleError(data.error || "Could not complete the sale");
+      refreshProducts(); // stock may have changed under us
+      return;
+    }
+
+    attempt.current = null;
     setReceipt(data.sale);
     setCart({});
     setRestored({});
@@ -198,7 +226,7 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
   function startNewSale() {
     setReceipt(null);
     setSaleError("");
-    setPayment("cash");
+    setPayment(null);
   }
 
   function showToast(message) {
@@ -228,7 +256,7 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
     setCart({});
     setRestored({});
     setDiscount("");
-    setPayment("cash");
+    setPayment(null);
     setSaleError("");
     setCartOpen(false);
     showToast("Sale held");
@@ -240,7 +268,7 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
     setCart(Object.fromEntries(order.items.map((i) => [i.productId, i.quantity])));
     setRestored(Object.fromEntries(order.items.map((i) => [i.productId, { name: i.name, price: i.price }])));
     setDiscount(order.discount > 0 ? String(order.discount) : "");
-    setPayment(PAYMENT_METHODS.includes(order.paymentMethod) ? order.paymentMethod : "cash");
+    setPayment(PAYMENT_METHODS.includes(order.paymentMethod) ? order.paymentMethod : null);
     setSaleError("");
     removeHeldOrder(store.id, order.id);
     setHeldOpen(false);
@@ -534,7 +562,14 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
             </div>
           </dl>
 
-          <div role="group" aria-label="Payment method" className="grid grid-cols-3 gap-2">
+          <div
+            role="group"
+            aria-label="Payment method"
+            className={cn(
+              "grid grid-cols-3 gap-2 rounded-2xl",
+              lines.length > 0 && !payment && "ring-2 ring-amber-400 ring-offset-2"
+            )}
+          >
             {PAYMENT_METHODS.map((m) => {
               const active = payment === m;
               return (
@@ -554,6 +589,10 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
               );
             })}
           </div>
+
+          {lines.length > 0 && !payment && (
+            <p className="text-center text-sm font-medium text-amber-700">Choose how the customer is paying</p>
+          )}
 
           {saleError && (
             <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
@@ -651,11 +690,46 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirm sale</DialogTitle>
-            <DialogDescription>
-              {itemCount} {itemCount === 1 ? "item" : "items"} paid by {PAYMENT_LABELS[payment]}.
-            </DialogDescription>
+            <DialogDescription>Check the items and the payment method before you confirm.</DialogDescription>
           </DialogHeader>
-          <p className="py-2 text-center text-4xl font-bold">{money(total)}</p>
+
+          <ul className="max-h-[40dvh] divide-y overflow-y-auto rounded-xl border border-gray-200 px-3" aria-label="Items in this sale">
+            {lines.map((l) => (
+              <li key={l.id} className="flex items-start justify-between gap-3 py-2 text-sm">
+                <span className="min-w-0 [overflow-wrap:anywhere]">
+                  <span className="font-medium">{l.name}</span>
+                  <span className="text-gray-500"> × {l.quantity}</span>
+                </span>
+                <span className="shrink-0 font-medium">
+                  {l.product ? money(roundMoney(l.product.price * l.quantity)) : "-"}
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          <dl className="space-y-1 text-sm">
+            <div className="flex justify-between text-gray-600">
+              <dt>Subtotal</dt>
+              <dd>{money(subtotal)}</dd>
+            </div>
+            {discountValue > 0 && (
+              <div className="flex justify-between text-gray-600">
+                <dt>Discount</dt>
+                <dd>-{money(discountValue)}</dd>
+              </div>
+            )}
+            <div className="flex items-center justify-between pt-1">
+              <dt className="text-gray-600">Paid by</dt>
+              <dd
+                style={{ background: accent, color: accentFg }}
+                className="rounded-full px-3 py-1 text-sm font-bold"
+              >
+                {PAYMENT_LABELS[payment]}
+              </dd>
+            </div>
+          </dl>
+
+          <p className="py-1 text-center text-4xl font-bold">{money(total)}</p>
           <DialogFooter>
             <button
               type="button"

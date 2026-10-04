@@ -51,7 +51,8 @@ export function parseHeld(raw) {
           quantity: i.quantity,
         })),
       discount: Number.isFinite(o.discount) && o.discount > 0 ? o.discount : 0,
-      paymentMethod: typeof o.paymentMethod === "string" ? o.paymentMethod : "cash",
+      // null when the cashier hadn't chosen one yet
+      paymentMethod: typeof o.paymentMethod === "string" ? o.paymentMethod : null,
       note: typeof o.note === "string" ? o.note : undefined,
     }))
     .filter((o) => o.items.length > 0);

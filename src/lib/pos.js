@@ -10,6 +10,12 @@ export const MAX_QUANTITY = 100000;
 // Money is kept to 2 decimals so floating point noise (0.1 + 0.2) never reaches a receipt.
 export const roundMoney = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
+// A fresh reference for one sale attempt (see Sale.clientRef).
+export function newSaleKey() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}
+
 export const receiptNumber = (id) => String(id).slice(-8).toUpperCase();
 
 // Black or white text, whichever reads better on the store's accent colour.
@@ -59,6 +65,15 @@ export function parseSaleInput(body) {
     discount = roundMoney(discount);
   }
 
+  // Optional, so older clients keep working. When present it must look like a generated key.
+  let clientRef = "";
+  if (body.clientRef !== undefined && body.clientRef !== null) {
+    if (typeof body.clientRef !== "string" || !/^[A-Za-z0-9_-]{8,64}$/.test(body.clientRef)) {
+      return fail("clientRef", "Invalid sale reference");
+    }
+    clientRef = body.clientRef;
+  }
+
   let note = "";
   if (body.note !== undefined && body.note !== null) {
     if (typeof body.note !== "string") return fail("note", "Invalid note");
@@ -72,6 +87,7 @@ export function parseSaleInput(body) {
       paymentMethod: body.paymentMethod,
       discount,
       note,
+      clientRef,
     },
   };
 }

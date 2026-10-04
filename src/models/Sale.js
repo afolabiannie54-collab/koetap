@@ -24,12 +24,17 @@ const SaleSchema = new mongoose.Schema(
     paymentMethod: { type: String, enum: ["cash", "transfer", "other"], required: true },
     note: { type: String },
     receiptSent: { type: Boolean, default: false },
+    // Chosen by the POS screen for each sale. Sending the same one twice (a double tap, or a retry
+    // after a dropped connection) returns the sale that already exists instead of making another.
+    clientRef: { type: String },
   },
   { timestamps: true }
 );
 
 // Every report filters by store and date range, and sorts by date.
 SaleSchema.index({ storeId: 1, createdAt: -1 });
+// One sale per reference per store. Older sales have no reference, so the index skips them.
+SaleSchema.index({ storeId: 1, clientRef: 1 }, { unique: true, partialFilterExpression: { clientRef: { $type: "string" } } });
 // The admin dashboard looks sales up by business, and lists the newest across the platform.
 SaleSchema.index({ businessId: 1, createdAt: -1 });
 SaleSchema.index({ createdAt: -1 });
