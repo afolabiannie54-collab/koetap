@@ -415,7 +415,7 @@
 
 /* Headline lines slide up out of a mask, one after another */
 @keyframes mkLineUp {
-  from { transform: translateY(105%); }
+  from { transform: translateY(125%); }
   to { transform: translateY(0); }
 }
 .mk-line {

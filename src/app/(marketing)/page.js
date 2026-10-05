@@ -43,13 +43,13 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-5 pt-14 sm:px-8 sm:pt-20 lg:pt-24">
           <h1 className="text-[clamp(3.4rem,9.6vw,8.75rem)] leading-[0.9] font-extrabold tracking-[-0.055em]">
             {/* Each line slides up out of its own mask; the padding below keeps descenders from being cut off */}
-            <span className="-mb-[0.14em] block overflow-hidden pb-[0.14em]">
+            <span className="-mx-[0.3em] -mt-[0.08em] -mb-[0.24em] block overflow-hidden px-[0.3em] pt-[0.08em] pb-[0.24em]">
               <span className="mk-line" style={{ "--d": "0ms" }}>Your store</span>
             </span>
-            <span className="-mb-[0.14em] block overflow-hidden pb-[0.14em]">
+            <span className="-mx-[0.3em] -mt-[0.08em] -mb-[0.24em] block overflow-hidden px-[0.3em] pt-[0.08em] pb-[0.24em]">
               <span className="mk-line" style={{ "--d": "120ms" }}>deserves a</span>
             </span>
-            <span className="-mb-[0.14em] block overflow-hidden pb-[0.14em]">
+            <span className="-mx-[0.3em] -mt-[0.08em] -mb-[0.24em] block overflow-hidden px-[0.3em] pt-[0.08em] pb-[0.24em]">
               <span className="mk-line" style={{ "--d": "240ms" }}>
                 <span className="mk-stamp relative inline-block rounded-[0.18em] bg-foreground px-[0.14em] pb-[0.06em] text-background">proper</span>{" "}
                 POS.
