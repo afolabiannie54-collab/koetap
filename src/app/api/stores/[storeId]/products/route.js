@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Product from "@/models/Product";
 import InventoryLog from "@/models/InventoryLog";
 import { authorizeStore } from "@/lib/api-auth";
+import { ensureCategory } from "@/lib/categories";
 import { buildProductFilter, parseProductInput, serializeProduct } from "@/lib/products";
 
 export async function GET(request, { params }) {
@@ -47,6 +48,7 @@ export async function POST(request, { params }) {
 
   // New products always start active; the tenant comes from the verified store, never the body.
   const { isActive, ...fields } = data;
+  await ensureCategory(store, fields.category);
   const product = await Product.create({
     ...fields,
     businessId: store.businessId,

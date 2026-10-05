@@ -29,12 +29,12 @@ export default async function AdminLayout({ children }) {
       <header className="flex flex-col gap-3 bg-[#0A0A0A] px-4 py-3 text-white md:hidden">
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-2">
-            <Wordmark size="sm" className="text-white [--wordmark-dot:#0A0A0A]" />
+            <Wordmark size="sm" className="text-white" />
             {ADMIN_TAG}
           </span>
           <div className="flex items-center gap-1">
-            <ThemeToggle className="text-white/70 hover:bg-white/10 hover:text-white" />
-            <AdminSignOut />
+            <ThemeToggle className="text-white/70 hover:bg-white/10 hover:text-white" tipSide="bottom" tipAlign="end" />
+            <AdminSignOut tipSide="bottom" />
           </div>
         </div>
         <AdminNav orientation="horizontal" />

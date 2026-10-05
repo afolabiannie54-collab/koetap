@@ -28,6 +28,10 @@ export async function POST(request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (user.role === "superadmin") {
+    return NextResponse.json({ error: "A super admin account doesn't have a business to set up" }, { status: 409 });
+  }
+
   // Only Google sign-ups who haven't named a business yet. Email/password users already did at registration.
   const alreadySetUp = user.setupComplete ?? Boolean(user.businessId);
   if (alreadySetUp || user.businessId) {

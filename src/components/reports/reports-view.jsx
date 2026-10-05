@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Banknote, Calculator, Package, Receipt } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionCard } from "@/components/ui/koetap/section-card";
 import { FormError } from "@/components/auth/form-error";
 import { StatGroup } from "@/components/ui/koetap/stat-group";
 import { Input } from "@/components/ui/input";
@@ -119,10 +119,10 @@ export function ReportsView({ storeId, currency, today }) {
   const s = ready ? current.summary : null;
 
   return (
-    <div className="space-y-8">
+    <div className="animate-contentIn space-y-8">
       {/* Range picker */}
       <div className="space-y-3">
-        <div role="group" aria-label="Date range" className="flex flex-wrap gap-2">
+        <div role="group" aria-label="Date range" className="inline-flex flex-wrap gap-1 rounded-xl border border-border bg-surface p-1 shadow-(--field-shadow)">
           {PRESET_BUTTONS.map(([id, label]) => {
             const active = preset === id;
             return (
@@ -132,10 +132,10 @@ export function ReportsView({ storeId, currency, today }) {
                 aria-pressed={active}
                 onClick={() => setPreset(id)}
                 className={cn(
-                  "h-9 rounded-full border px-4 text-sm font-medium transition-all duration-150 active:scale-[0.98]",
+                  "h-8 rounded-lg px-3.5 text-sm font-medium transition-all duration-150 active:scale-[0.98]",
                   active
-                    ? "border-transparent bg-primary text-primary-foreground"
-                    : "border-input bg-background text-foreground hover:bg-accent"
+                    ? "bg-primary text-primary-foreground shadow-(--btn-shadow)"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}
               >
                 {label}
@@ -197,14 +197,7 @@ export function ReportsView({ storeId, currency, today }) {
           />
 
           {/* Revenue chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Revenue</CardTitle>
-              <CardDescription>
-                {ready ? (current.revenue.interval === "hour" ? "By hour" : "By day") : " "}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+          <SectionCard title="Revenue" description={ready ? (current.revenue.interval === "hour" ? "By hour" : "By day") : " "} bodyClassName="p-5">
               {loading ? (
                 <Skeleton className="h-72 w-full" />
               ) : s.transactions === 0 ? (
@@ -216,16 +209,11 @@ export function ReportsView({ storeId, currency, today }) {
                   currency={currency}
                 />
               )}
-            </CardContent>
-          </Card>
+            </SectionCard>
 
           <div className="grid gap-6 2xl:grid-cols-2">
             {/* Top products */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Top Products</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <SectionCard title="Top Products" bodyClassName="p-5">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -252,15 +240,10 @@ export function ReportsView({ storeId, currency, today }) {
                     )}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </SectionCard>
 
             {/* Cashier performance */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Cashier Performance</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <SectionCard title="Cashier Performance" bodyClassName="p-5">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -290,16 +273,11 @@ export function ReportsView({ storeId, currency, today }) {
                     )}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
+              </SectionCard>
           </div>
 
           {/* Payment methods */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Payment Methods</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <SectionCard title="Payment Methods" bodyClassName="p-5">
               {loading ? (
                 <Skeleton className="h-24 w-full" />
               ) : current.payments.total === 0 ? (
@@ -328,20 +306,13 @@ export function ReportsView({ storeId, currency, today }) {
                   ))}
                 </ul>
               )}
-            </CardContent>
-          </Card>
+            </SectionCard>
 
           {/* Sales list */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Sales</CardTitle>
-              <CardDescription>Click a sale to see its items.</CardDescription>
-            </CardHeader>
-            <CardContent>
+          <SectionCard title="Sales" description="Click a sale to see its items." bodyClassName="p-5">
               {/* The key remounts the list for every new range, so it always starts again on page 1. */}
               <SalesList key={key} storeId={storeId} from={range.from} to={range.to} currency={currency} />
-            </CardContent>
-          </Card>
+            </SectionCard>
         </>
       )}
     </div>

@@ -1,12 +1,12 @@
 import { Wordmark } from "@/components/ui/koetap/wordmark";
 import { ThemeToggle } from "@/components/ui/koetap/theme-toggle";
 
-// The centered white card on a light grey page that every sign-in screen shares.
+// The centered white card on a grey page that every sign-in screen shares.
 export function AuthShell({ children, heading, subtext, footer }) {
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center bg-grey-100 px-4 py-10 dark:bg-background">
+    <main className="relative flex min-h-screen flex-col items-center justify-center bg-canvas px-4 py-10">
       <div className="absolute top-4 right-4">
-        <ThemeToggle />
+        <ThemeToggle tipSide="bottom" tipAlign="end" />
       </div>
 
       <div className="w-full max-w-md animate-fadeIn rounded-2xl border border-border bg-card p-8 shadow-md sm:p-10">

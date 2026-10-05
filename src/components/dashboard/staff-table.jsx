@@ -16,10 +16,10 @@ import { StaffDialog } from "@/components/dashboard/staff-dialog";
 import { cn } from "@/lib/utils";
 
 // Icon-only with a tooltip (the label stays for screen readers), so rows fit on a phone without scrolling.
-function RowAction({ label, icon: Icon, onClick, variant = "ghost", disabled }) {
+function RowAction({ label, icon: Icon, onClick, variant = "ghost", tone, disabled }) {
   return (
     <KTooltip label={label} align="end">
-      <Button size="sm" variant={variant} onClick={onClick} disabled={disabled} aria-label={label} className="size-8 px-0 sm:size-9">
+      <Button size="sm" variant={variant} onClick={onClick} disabled={disabled} aria-label={label} className={cn("size-8 px-0 sm:size-9", tone === "danger" && "text-error-ink hover:bg-error-soft")}>
         <Icon />
         <span className="sr-only">{label}</span>
       </Button>
@@ -74,7 +74,7 @@ export function StaffTable({ storeId, staff }) {
   );
 
   return (
-    <div className="space-y-5">
+    <div className="animate-contentIn space-y-5">
       {staff.length === 0 ? (
         <EmptyState
           icon={Users}
@@ -123,7 +123,8 @@ export function StaffTable({ storeId, staff }) {
                         <RowAction
                           label={m.isActive ? "Deactivate" : "Reactivate"}
                           icon={m.isActive ? Ban : RotateCcw}
-                          variant={m.isActive ? "destructive" : "secondary"}
+                          variant="ghost"
+                          tone={m.isActive ? "danger" : undefined}
                           disabled={busyId === m.id}
                           onClick={() => toggleActive(m)}
                         />

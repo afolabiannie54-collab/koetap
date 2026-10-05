@@ -28,7 +28,7 @@ export default async function ReportsIndexPage() {
   const ordered = [...stores.filter((s) => s.isActive), ...stores.filter((s) => !s.isActive)];
 
   return (
-    <div className="space-y-8">
+    <div className="animate-contentIn space-y-8">
       <PageHeader title="Reports" description="Choose a store to see its sales reports." />
 
       {stores.length === 0 ? (

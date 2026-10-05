@@ -27,10 +27,12 @@ export function StoreList({ stores, counts, hrefFor = (s) => `/stores/${s.id}`, 
                   <span className="text-base font-semibold tracking-tight [overflow-wrap:anywhere]">{store.name}</span>
                   <KBadge variant={store.isActive ? "active" : "inactive"}>{store.isActive ? "Active" : "Inactive"}</KBadge>
                 </span>
-                <span className="mt-0.5 flex items-start gap-1.5 text-sm text-muted-foreground">
-                  <MapPin className="mt-0.5 size-4 shrink-0" />
-                  <span className="[overflow-wrap:anywhere]">{store.address || "No address yet"}</span>
-                </span>
+                {store.address && (
+                  <span className="mt-0.5 flex items-start gap-1.5 text-sm text-muted-foreground">
+                    <MapPin className="mt-0.5 size-4 shrink-0" />
+                    <span className="[overflow-wrap:anywhere]">{store.address}</span>
+                  </span>
+                )}
               </span>
 
               {c && (

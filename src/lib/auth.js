@@ -36,7 +36,9 @@ class SuspendedError extends CredentialsSignin {
 export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   adapter: MongoDBAdapter(clientPromise),
   session: { strategy: "jwt" },
-  pages: { signIn: "/login" },
+  // Any sign-in failure (Google cancelled, a callback error, a misconfiguration) comes back to the sign-in page with
+  // ?error=..., which shows a plain message, instead of Auth.js's own "server configuration" page.
+  pages: { signIn: "/login", error: "/login" },
   providers: [
     Google({
       clientId: process.env.AUTH_GOOGLE_ID,
@@ -80,8 +82,9 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
     // them to /setup to name their business (the proxy enforces this via setupComplete).
     async createUser({ user }) {
       await connectDB();
+      // (never touches a super admin: that role is only ever set in the database)
       await User.updateOne(
-        { _id: user.id },
+        { _id: user.id, role: { $ne: "superadmin" } },
         { role: "owner", isActive: true, setupComplete: false }
       );
     },
@@ -107,7 +110,8 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         token.businessId = dbUser?.businessId?.toString() ?? null;
         token.storeId = dbUser?.storeId?.toString() ?? null;
         // Users created before this flag existed have no value; a business means they're set up.
-        token.setupComplete = dbUser?.setupComplete ?? Boolean(dbUser?.businessId);
+        // A super admin has no business and never goes through setup.
+        token.setupComplete = token.role === "superadmin" ? true : (dbUser?.setupComplete ?? Boolean(dbUser?.businessId));
         token.suspended =
           token.role !== "superadmin" && (await isBusinessSuspended(token.businessId, { fresh: true }));
       } else {

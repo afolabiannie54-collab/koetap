@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { KTooltip } from "@/components/ui/koetap/tooltip";
 import { clearAllHeldOrders } from "@/lib/held-orders";
 
-export function SignOutButton({ className }) {
+export function SignOutButton({ className, tipSide = "top" }) {
   return (
-    <KTooltip label="Sign out" align="end">
+    <KTooltip label="Sign out" side={tipSide} align="end">
       <Button
         variant="ghost"
         size="icon-sm"

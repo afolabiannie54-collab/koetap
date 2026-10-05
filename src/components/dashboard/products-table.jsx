@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Ban, Package, Pencil, Plus, RotateCcw, Search, SlidersHorizontal } from "lucide-react";
+import { Ban, Package, Pencil, Plus, RotateCcw, Search, SlidersHorizontal, Tags } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { useConfirm } from "@/components/ui/koetap/confirm-dialog";
 import { EmptyState } from "@/components/ui/koetap/empty-state";
 import { useToast } from "@/components/ui/koetap/toast";
 import { KTooltip } from "@/components/ui/koetap/tooltip";
+import { CategoryManager } from "@/components/dashboard/category-manager";
 import { ProductDialog } from "@/components/dashboard/product-dialog";
 import { StockDialog } from "@/components/dashboard/stock-dialog";
 import { formatMoney } from "@/lib/stores";
@@ -22,7 +23,7 @@ import { cn } from "@/lib/utils";
 const ALL = "all";
 
 // Icon-only with a tooltip on larger screens; icon + words on phones, where there's no hover.
-function RowAction({ label, icon: Icon, onClick, variant = "ghost", disabled }) {
+function RowAction({ label, icon: Icon, onClick, variant = "ghost", tone, disabled }) {
   return (
     <KTooltip label={label} align="end">
       <Button
@@ -31,7 +32,7 @@ function RowAction({ label, icon: Icon, onClick, variant = "ghost", disabled }) 
         onClick={onClick}
         disabled={disabled}
         aria-label={label}
-        className="size-8 px-0 sm:size-9"
+        className={cn("size-8 px-0 sm:size-9", tone === "danger" && "text-error-ink hover:bg-error-soft")}
       >
         <Icon />
         <span className="sr-only">{label}</span>
@@ -40,7 +41,7 @@ function RowAction({ label, icon: Icon, onClick, variant = "ghost", disabled }) 
   );
 }
 
-export function ProductsTable({ storeId, currency, storeThreshold, products, initialLow = false }) {
+export function ProductsTable({ storeId, currency, storeThreshold, products, categories, initialLow = false }) {
   const router = useRouter();
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
@@ -50,13 +51,12 @@ export function ProductsTable({ storeId, currency, storeThreshold, products, ini
   const [lowOnly, setLowOnly] = useState(initialLow);
   const [productDialog, setProductDialog] = useState(null); // "new" or a product
   const [stockProduct, setStockProduct] = useState(null);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [actionError, setActionError] = useState("");
 
-  const categories = useMemo(
-    () => [...new Set(products.map((p) => p.category).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
-    [products]
-  );
+  // The store's own category list (created in "Categories"), not whatever happens to be typed on products
+  const categoryNames = useMemo(() => categories.map((c) => c.name), [categories]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -107,14 +107,16 @@ export function ProductsTable({ storeId, currency, storeThreshold, products, ini
   }
 
   const addButton = (
-    <Button onClick={() => setProductDialog("new")}>
-      <Plus />
-      Add Product
-    </Button>
+    <KTooltip label="Add a product to this store" align="end">
+      <Button onClick={() => setProductDialog("new")}>
+        <Plus />
+        Add Product
+      </Button>
+    </KTooltip>
   );
 
   return (
-    <div className="space-y-5">
+    <div className="animate-contentIn space-y-5">
       {products.length === 0 ? (
         <EmptyState
           icon={Package}
@@ -142,7 +144,7 @@ export function ProductsTable({ storeId, currency, storeThreshold, products, ini
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL}>All categories</SelectItem>
-                {categories.map((c) => (
+                {categoryNames.map((c) => (
                   <SelectItem key={c} value={c}>
                     {c}
                   </SelectItem>
@@ -159,14 +161,24 @@ export function ProductsTable({ storeId, currency, storeThreshold, products, ini
                 <SelectItem value="inactive">Inactive</SelectItem>
               </SelectContent>
             </Select>
-            <Button
-              variant={lowOnly ? "default" : "secondary"}
-              aria-pressed={lowOnly}
-              onClick={() => setLowOnly(!lowOnly)}
-            >
-              Low stock only
-            </Button>
-            <div className="ml-auto">{addButton}</div>
+            <KTooltip label="Show only products that are running low or sold out">
+              <Button
+                variant={lowOnly ? "default" : "secondary"}
+                aria-pressed={lowOnly}
+                onClick={() => setLowOnly(!lowOnly)}
+              >
+                Low stock only
+              </Button>
+            </KTooltip>
+            <div className="ml-auto flex items-center gap-2">
+              <KTooltip label="Create and edit the categories your products are sorted into" align="end">
+                <Button variant="secondary" onClick={() => setCategoriesOpen(true)}>
+                  <Tags />
+                  Categories
+                </Button>
+              </KTooltip>
+              {addButton}
+            </div>
           </div>
 
           {actionError && <FormError>{actionError}</FormError>}
@@ -219,12 +231,13 @@ export function ProductsTable({ storeId, currency, storeThreshold, products, ini
                       </TableCell>
                       <TableCell>
                         <div className="flex justify-end gap-1">
-                          <RowAction label="Edit" icon={Pencil} onClick={() => setProductDialog(p)} />
-                          <RowAction label="Adjust stock" icon={SlidersHorizontal} onClick={() => setStockProduct(p)} />
+                          <RowAction label="Edit product details" icon={Pencil} onClick={() => setProductDialog(p)} />
+                          <RowAction label="Adjust stock: restock, correct or write off" icon={SlidersHorizontal} onClick={() => setStockProduct(p)} />
                           <RowAction
-                            label={p.isActive ? "Deactivate" : "Reactivate"}
+                            label={p.isActive ? "Deactivate: hide it from the POS" : "Reactivate: sell it again"}
                             icon={p.isActive ? Ban : RotateCcw}
-                            variant={p.isActive ? "destructive" : "secondary"}
+                            variant="ghost"
+                            tone={p.isActive ? "danger" : undefined}
                             disabled={busyId === p.id}
                             onClick={() => toggleActive(p)}
                           />
@@ -250,6 +263,9 @@ export function ProductsTable({ storeId, currency, storeThreshold, products, ini
       )}
       {stockProduct && (
         <StockDialog storeId={storeId} product={stockProduct} onClose={() => setStockProduct(null)} />
+      )}
+      {categoriesOpen && (
+        <CategoryManager storeId={storeId} categories={categories} onClose={() => setCategoriesOpen(false)} />
       )}
       {confirmDialog}
     </div>

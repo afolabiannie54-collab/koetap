@@ -5,6 +5,9 @@ import { useReactToPrint } from "react-to-print";
 import { Check, Printer, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FormField } from "@/components/ui/koetap/form-field";
+import { useFormValidation } from "@/lib/use-form-validation";
+import { rules } from "@/lib/validate";
 import { PAYMENT_LABELS, receiptNumber } from "@/lib/pos";
 import { formatMoney } from "@/lib/stores";
 
@@ -37,9 +40,15 @@ export function ReceiptPanel({ sale, store, onNewSale }) {
   const [email, setEmail] = useState("");
   const [emailStatus, setEmailStatus] = useState({ type: "", message: "" });
   const [sending, setSending] = useState(false);
+  const { errors, onBlur, validate } = useFormValidation(
+    { email: [rules.required("Customer email"), rules.email()] },
+    { email },
+    { idPrefix: "receipt-" }
+  );
 
   async function sendEmail(e) {
     e.preventDefault();
+    if (!validate()) return;
     setEmailStatus({ type: "", message: "" });
     setSending(true);
 
@@ -128,27 +137,32 @@ export function ReceiptPanel({ sale, store, onNewSale }) {
           {store.receiptFooter && <p className="receipt-muted mt-5 text-center text-xs">{store.receiptFooter}</p>}
         </div>
 
-        <form onSubmit={sendEmail} className="space-y-2 rounded-2xl border border-border bg-background p-4">
-          <label htmlFor="receipt-email" className="text-sm font-medium">
-            Send receipt to email (optional)
-          </label>
-          <div className="flex gap-2">
-            <Input
-              id="receipt-email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="customer@example.com"
-            />
-            <Button type="submit" disabled={sending} style={ACCENT_STYLE} className="shrink-0">
-              {sending ? "Sending..." : "Send"}
-            </Button>
-          </div>
+        <form onSubmit={sendEmail} noValidate className="space-y-2 rounded-2xl border border-border bg-background p-4">
+          <FormField id="receipt-email" label="Send receipt to email" optional error={errors.email}>
+            {(a11y) => (
+              <div className="flex gap-2">
+                <Input
+                  {...a11y}
+                  type="email"
+                  autoComplete="off"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setEmailStatus({ type: "", message: "" });
+                  }}
+                  onBlur={onBlur("email")}
+                  placeholder="customer@example.com"
+                />
+                <Button type="submit" loading={sending} style={ACCENT_STYLE} className="shrink-0">
+                  {sending ? "Sending..." : "Send"}
+                </Button>
+              </div>
+            )}
+          </FormField>
           {emailStatus.message && (
             <p
               role={emailStatus.type === "error" ? "alert" : "status"}
-              className={`text-xs ${emailStatus.type === "error" ? "text-error-ink" : "text-success-ink"}`}
+              className={`animate-slideUp text-xs font-medium ${emailStatus.type === "error" ? "text-error-ink" : "text-success-ink"}`}
             >
               {emailStatus.message}
             </p>

@@ -19,7 +19,8 @@ export function Greeting({ name }) {
   return (
     <div>
       <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-        {hello}, {name}
+        {hello}
+        {name ? `, ${name}` : ""}
       </h1>
       <p className="mt-1.5 min-h-5 text-sm text-muted-foreground">{date}</p>
     </div>

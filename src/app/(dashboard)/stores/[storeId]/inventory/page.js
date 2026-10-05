@@ -41,7 +41,7 @@ export default async function InventoryLogPage({ params }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="animate-contentIn space-y-3">
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
         <Table>
           <TableHeader>

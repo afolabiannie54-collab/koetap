@@ -27,7 +27,7 @@ export default async function StoresPage() {
   const counts = await getStoreCounts(stores.map((s) => s.id));
 
   return (
-    <div className="space-y-8">
+    <div className="animate-contentIn space-y-8">
       {/* "Add Store" sits in the top bar, top right */}
       <TopBarActions>
         <AddStoreDialog />

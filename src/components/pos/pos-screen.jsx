@@ -1,10 +1,24 @@
 "use client";
 
-import { useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { ArrowLeft, Clock, LogOut, Minus, Package, Pause, Plus, Search, ShoppingBag, ShoppingCart, Trash2, X } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import {
+  ArrowLeft,
+  ArrowLeftRight,
+  Banknote,
+  Clock,
+  LogOut,
+  Minus,
+  Pause,
+  Plus,
+  Search,
+  ShoppingBag,
+  ShoppingCart,
+  Trash2,
+  Wallet,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -16,6 +30,7 @@ import { KTooltip } from "@/components/ui/koetap/tooltip";
 import { ReceiptPanel, StoreBrand } from "@/components/pos/receipt-panel";
 import { PAYMENT_LABELS, PAYMENT_METHODS, newSaleKey, readableTextColor, roundMoney } from "@/lib/pos";
 import { formatMoney } from "@/lib/stores";
+import { storeThemeCss } from "@/lib/theme";
 import {
   addHeldOrder,
   clearAllHeldOrders,
@@ -29,10 +44,7 @@ import {
 } from "@/lib/held-orders";
 import { cn } from "@/lib/utils";
 
-// The store's accent colour drives the buttons and selected states. A store with no accent colour falls
-// back to Koetap's own black (white in dark mode), so it never looks unfinished.
-const ACCENT = { background: "var(--store-accent, var(--primary))", color: "var(--store-accent-fg, var(--primary-foreground))" };
-const ACCENT_EDGE = { borderColor: "var(--store-accent, var(--foreground))", boxShadow: "0 0 0 1px var(--store-accent, var(--foreground))" };
+const PAYMENT_ICON = { cash: Banknote, transfer: ArrowLeftRight, other: Wallet };
 
 // A live clock without setting state in an effect. null on the server so it can't mismatch.
 const subscribeClock = (onChange) => {
@@ -48,11 +60,14 @@ function useClock() {
 }
 
 export function PosScreen({ store, cashierName, role, initialProducts }) {
+  // The store's accent colour takes over from black: the header bar, selected states and buttons. A store with no
+  // accent colour stays black and white. (--primary is what "bg-primary" reads; see lib/theme.js.)
   const accent = /^#[0-9a-fA-F]{6}$/.test(store.accentColor) ? store.accentColor : null;
   const money = (n) => formatMoney(n, store.currency);
   const now = useClock();
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
+  const searchRef = useRef(null);
 
   const [products, setProducts] = useState(initialProducts);
   const [cart, setCart] = useState({}); // productId -> quantity
@@ -82,10 +97,11 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
 
   const productMap = useMemo(() => new Map(products.map((p) => [p._id, p])), [products]);
 
-  const categories = useMemo(
-    () => [...new Set(products.map((p) => p.category).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
-    [products]
-  );
+  const categories = useMemo(() => {
+    const counts = new Map();
+    for (const p of products) if (p.category) counts.set(p.category, (counts.get(p.category) ?? 0) + 1);
+    return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [products]);
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -94,6 +110,19 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
       return !q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
     });
   }, [products, search, category]);
+
+  // Pressing "/" jumps to the search box, like most search-heavy apps.
+  useEffect(() => {
+    function onKey(e) {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName ?? "");
+      if (e.key === "/" && !typing && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // Cart lines use the live product (price, stock). A product that vanished or no longer has
   // enough stock after a refresh is flagged and blocks the sale until fixed.
@@ -158,6 +187,21 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
     });
   }
 
+  async function clearSale() {
+    const ok = await confirm({
+      title: "Clear this sale?",
+      description: "Everything in the cart will be removed. To keep it for later, use Hold instead.",
+      confirmLabel: "Clear sale",
+      destructive: true,
+    });
+    if (!ok) return;
+    setCart({});
+    setRestored({});
+    setDiscount("");
+    setPayment(null);
+    setSaleError("");
+  }
+
   async function refreshProducts() {
     try {
       const res = await fetch(`/api/pos/${store.id}/products`);
@@ -208,7 +252,7 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
     // We don't know if it went through (no answer, or a gateway error): keep the reference so a retry is safe.
     if (!res || res.status >= 500) {
       setSaleError(
-        "The connection is slow or dropped, so we can't tell if this sale went through. Tap Complete Sale again. It will not be charged twice."
+        "The connection is slow or dropped, so we can't tell if this sale went through. Tap Charge again. It will not be charged twice."
       );
       return;
     }
@@ -300,43 +344,74 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
     signOut({ callbackUrl: "/login" });
   }
 
-  const rootStyle = accent ? { "--store-accent": accent, "--store-accent-fg": readableTextColor(accent) } : undefined;
   const clock = now ? now.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "--:--:--";
+  const onBar = "text-primary-foreground hover:bg-white/15 hover:text-primary-foreground";
+
+  const searchBox = (
+    <div className="relative w-full">
+      <Search className="pointer-events-none absolute top-1/2 left-3.5 size-5 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        ref={searchRef}
+        type="search"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search products by name or SKU"
+        aria-label="Search products"
+        className="h-11 border-transparent pl-11 text-base shadow-md md:text-base"
+      />
+      <kbd className="pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 rounded-md border border-input bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground lg:block">
+        /
+      </kbd>
+    </div>
+  );
 
   return (
-    <div style={rootStyle} className="relative flex h-dvh flex-col overflow-hidden bg-canvas text-foreground">
-      {/* Header bar */}
-      <header className="z-20 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background px-4">
-        <div className="flex min-w-0 shrink-0 items-center">
-          <StoreBrand store={store} className="max-w-48 text-lg" />
-        </div>
-        {/* With a logo on the left, the store's name sits in the middle */}
-        <div className="min-w-0 flex-1 text-center">
-          {store.logoUrl && <span className="hidden truncate text-sm font-semibold sm:inline">{store.name}</span>}
+    <div className="store-scope relative flex h-dvh flex-col overflow-hidden bg-background text-foreground">
+      {accent && <style>{storeThemeCss(accent, readableTextColor(accent))}</style>}
+
+      {/* Header bar: the store's colour, with the search box in the middle */}
+      <header className="z-20 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 bg-primary px-4 py-2.5 text-primary-foreground shadow-lg">
+        <div className="flex min-w-0 shrink-0 items-center gap-3 md:w-64">
+          {store.logoUrl ? (
+            <span className="rounded-lg bg-white p-1.5">
+              <StoreBrand store={store} className="max-w-40" />
+            </span>
+          ) : (
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-foreground text-lg font-bold text-primary">
+              {store.name.trim().charAt(0).toUpperCase() || "S"}
+            </span>
+          )}
+          <div className="min-w-0 leading-tight">
+            <p className="truncate text-base font-bold">{store.name}</p>
+            <p className="text-xs text-primary-foreground/70">Point of sale</p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="order-3 w-full md:order-none md:mx-auto md:w-auto md:max-w-xl md:flex-1">{searchBox}</div>
+
+        <div className="ml-auto flex items-center gap-1.5 sm:gap-2.5">
           {heldOrders.length > 0 && (
-            <Button type="button" variant="secondary" size="sm" onClick={() => setHeldOpen(true)}>
-              <Clock />
-              Held ({heldOrders.length})
-            </Button>
+            <KTooltip label="Sales you put on hold on this device" side="bottom">
+              <Button type="button" variant="secondary" size="sm" onClick={() => setHeldOpen(true)}>
+                <Clock />
+                Held ({heldOrders.length})
+              </Button>
+            </KTooltip>
           )}
           <div className="hidden text-right leading-tight sm:block">
-            <p className="max-w-40 truncate text-sm font-semibold">{cashierName}</p>
-            <p className="text-xs text-muted-foreground tabular-nums">{clock}</p>
+            <p className="max-w-36 truncate text-sm font-semibold">{cashierName}</p>
+            <p className="text-xs text-primary-foreground/70 tabular-nums">{clock}</p>
           </div>
-          <p className="text-xs text-muted-foreground tabular-nums sm:hidden">{clock.slice(0, 5)}</p>
-          <ThemeToggle />
+          <ThemeToggle tipSide="bottom" tipAlign="end" className={onBar} />
           {role === "cashier" ? (
-            <KTooltip label="Sign out" align="end">
-              <Button type="button" variant="ghost" size="icon-sm" aria-label="Sign out" onClick={signOutCashier}>
+            <KTooltip label="Sign out" side="bottom" align="end">
+              <Button type="button" variant="ghost" size="icon-sm" aria-label="Sign out" onClick={signOutCashier} className={onBar}>
                 <LogOut />
               </Button>
             </KTooltip>
           ) : (
-            <KTooltip label="Back to dashboard" align="end">
-              <Button asChild variant="ghost" size="icon-sm">
+            <KTooltip label="Back to the dashboard" side="bottom" align="end">
+              <Button asChild variant="ghost" size="icon-sm" className={onBar}>
                 <Link href={`/stores/${store.id}`} aria-label="Back to dashboard">
                   <ArrowLeft />
                 </Link>
@@ -347,22 +422,11 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        {/* LEFT: products */}
+        {/* LEFT: categories and products */}
         <section className="flex min-w-0 flex-1 flex-col">
-          <div className="space-y-3 border-b border-border bg-background px-4 py-3">
-            <div className="relative">
-              <Search className="pointer-events-none absolute top-1/2 left-3.5 size-5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search products"
-                aria-label="Search products"
-                className="h-12 pl-11 text-base"
-              />
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {["all", ...categories].map((c) => {
+          {(categories.length > 0 || products.length > 0) && (
+            <div className="flex shrink-0 gap-2 overflow-x-auto border-b border-border bg-card px-4 py-3">
+              {[["all", products.length], ...categories].map(([c, count]) => {
                 const active = category === c;
                 return (
                   <button
@@ -370,29 +434,39 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
                     type="button"
                     onClick={() => setCategory(c)}
                     aria-pressed={active}
-                    style={active ? ACCENT : undefined}
                     className={cn(
-                      "h-10 shrink-0 rounded-full border px-4 text-sm font-medium transition-all duration-150 active:scale-95",
-                      active ? "border-transparent" : "border-input bg-background text-foreground hover:bg-accent"
+                      "flex h-10 shrink-0 items-center gap-2 rounded-xl border px-4 text-sm font-semibold transition-all duration-150 active:scale-95",
+                      active
+                        ? "border-primary bg-primary text-primary-foreground shadow-(--btn-shadow)"
+                        : "border-input bg-card text-foreground hover:bg-accent"
                     )}
                   >
                     {c === "all" ? "All" : c}
+                    <span
+                      className={cn(
+                        "rounded-md px-1.5 text-xs tabular-nums",
+                        active ? "bg-white/20" : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {count}
+                    </span>
                   </button>
                 );
               })}
             </div>
-          </div>
+          )}
 
-          <div className="flex-1 overflow-y-auto p-4 pb-28 lg:pb-4">
+          <div className="flex-1 overflow-y-auto bg-muted/40 p-4 pb-28 lg:pb-4">
             {products.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-20 text-center text-muted-foreground">
-                <Package className="size-10" strokeWidth={1.5} />
-                <p>No products in this store yet.</p>
+                <ShoppingBag className="size-10" strokeWidth={1.5} />
+                <p className="font-medium text-foreground">No products in this store yet</p>
+                <p className="text-sm">Add products from the dashboard and they&apos;ll show up here.</p>
               </div>
             ) : visible.length === 0 ? (
               <p className="py-20 text-center text-muted-foreground">No products match your search.</p>
             ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {visible.map((p) => {
                   const out = p.stock <= 0;
                   const inCart = cart[p._id] ?? 0;
@@ -403,50 +477,47 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
                       type="button"
                       disabled={out}
                       onClick={() => addToCart(p)}
-                      style={inCart > 0 ? ACCENT_EDGE : undefined}
                       className={cn(
-                        "group/product relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card text-left shadow-sm transition-all duration-200 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground",
-                        out
-                          ? "cursor-not-allowed"
-                          : "hover:-translate-y-0.5 hover:shadow-md active:scale-95 active:duration-100"
+                        "group/product relative flex flex-col overflow-hidden rounded-2xl border bg-card text-left shadow-sm transition-all duration-150 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground",
+                        inCart > 0 ? "border-primary ring-2 ring-primary" : "border-input",
+                        out ? "cursor-not-allowed" : "hover:-translate-y-0.5 hover:shadow-md active:scale-[0.97]"
                       )}
                     >
-                      {/* Picture area: a placeholder icon until products can have images */}
+                      {/* No product pictures yet, so each product gets a tile with its initial */}
                       <span
                         className={cn(
-                          "flex aspect-[5/3] items-center justify-center bg-muted text-muted-foreground",
-                          out && "opacity-50 grayscale"
+                          "relative flex h-24 items-center justify-center bg-muted text-5xl font-bold text-foreground/20 select-none",
+                          out && "opacity-60"
                         )}
                       >
-                        <Package className="size-8" strokeWidth={1.5} />
+                        {p.name.trim().charAt(0).toUpperCase()}
+                        {low && (
+                          <span className="absolute top-2 left-2 rounded-md bg-warning-soft px-1.5 py-0.5 text-[11px] font-bold text-warning-ink">
+                            {p.stock} left
+                          </span>
+                        )}
+                        {inCart > 0 && (
+                          <span className="absolute top-2 right-2 flex size-7 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground shadow-md">
+                            {inCart}
+                          </span>
+                        )}
                       </span>
 
                       <span className={cn("flex flex-1 flex-col gap-1 p-3", out && "opacity-50")}>
                         <span className="line-clamp-2 text-sm leading-snug font-semibold">{p.name}</span>
-                        <span className="mt-auto flex items-end justify-between gap-2 pt-1">
-                          <span className="text-base font-bold">{money(p.price)}</span>
+                        <span className="mt-auto flex items-center justify-between pt-1.5">
+                          <span className="text-lg font-bold tracking-tight">{money(p.price)}</span>
                           {!out && (
-                            <Badge variant={low ? "warning" : "secondary"} className="h-5 px-2 text-[11px]">
-                              {p.stock} left
-                            </Badge>
+                            <span className="flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform duration-150 group-hover/product:scale-110">
+                              <Plus className="size-4" strokeWidth={3} />
+                            </span>
                           )}
                         </span>
                       </span>
 
                       {out && (
-                        <span className="absolute inset-0 flex items-center justify-center bg-background/60">
-                          <span className="rounded-full bg-foreground px-3 py-1 text-xs font-semibold text-background">
-                            Out of Stock
-                          </span>
-                        </span>
-                      )}
-
-                      {inCart > 0 && (
-                        <span
-                          style={ACCENT}
-                          className="absolute top-2 right-2 flex size-7 items-center justify-center rounded-full text-sm font-bold shadow-md"
-                        >
-                          {inCart}
+                        <span className="absolute inset-0 flex items-center justify-center bg-background/55">
+                          <span className="rounded-full bg-foreground px-3 py-1 text-xs font-bold text-background">Sold out</span>
                         </span>
                       )}
                     </button>
@@ -458,12 +529,11 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
         </section>
 
         {/* Phones: a bar at the bottom that opens the cart (or the receipt) */}
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background p-3 lg:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-card p-3 lg:hidden">
           <button
             type="button"
             onClick={() => setCartOpen(true)}
-            style={ACCENT}
-            className="flex h-14 w-full items-center justify-between rounded-xl px-5 text-base font-semibold transition-transform active:scale-[0.98]"
+            className="flex h-14 w-full items-center justify-between rounded-xl bg-primary px-5 text-base font-semibold text-primary-foreground shadow-(--btn-shadow) transition-transform active:scale-[0.98]"
           >
             <span className="flex items-center gap-2">
               <ShoppingCart className="size-5" />
@@ -477,12 +547,12 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
           <div className="fixed inset-0 z-30 bg-black/40 backdrop-blur-[2px] lg:hidden" onClick={() => setCartOpen(false)} aria-hidden="true" />
         )}
 
-        {/* RIGHT: cart, or the receipt right after a sale (a fixed 320px panel; a slide-up sheet on phones) */}
+        {/* RIGHT: the cart, or the receipt right after a sale (a fixed panel; a slide-up sheet on phones) */}
         <aside
           className={cn(
-            "fixed inset-x-0 bottom-0 z-40 flex h-[88dvh] flex-col rounded-t-3xl border border-border bg-card shadow-lg transition-transform duration-300",
+            "fixed inset-x-0 bottom-0 z-40 flex h-[88dvh] flex-col rounded-t-3xl border border-input bg-card shadow-lg transition-transform duration-300",
             cartOpen ? "translate-y-0" : "translate-y-full",
-            "lg:static lg:z-auto lg:h-auto lg:w-80 lg:shrink-0 lg:translate-y-0 lg:rounded-none lg:border-y-0 lg:border-r-0 lg:shadow-none"
+            "lg:static lg:z-auto lg:h-auto lg:w-[380px] lg:shrink-0 lg:translate-y-0 lg:rounded-none lg:border-y-0 lg:border-r-0 lg:border-l-2 lg:border-l-foreground lg:shadow-none"
           )}
         >
           <button
@@ -498,67 +568,88 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
             <ReceiptPanel sale={receipt} store={store} onNewSale={startNewSale} />
           ) : (
             <>
-              <header className="flex items-center gap-2.5 border-b border-border px-4 py-3.5">
-                <h2 className="text-base font-semibold tracking-tight">Cart</h2>
+              <header className="flex items-center gap-3 border-b border-border px-5 py-4">
+                <h2 className="text-lg font-bold tracking-tight">Current sale</h2>
                 {itemCount > 0 && (
-                  <span style={ACCENT} className="inline-flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-xs font-bold">
+                  <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-primary px-2 text-xs font-bold text-primary-foreground">
                     {itemCount}
                   </span>
                 )}
+                {lines.length > 0 && (
+                  <KTooltip label="Remove everything from this sale" align="end">
+                    <Button type="button" variant="ghost" size="sm" onClick={clearSale} className="ml-auto mr-8 text-muted-foreground lg:mr-0">
+                      <Trash2 />
+                      Clear
+                    </Button>
+                  </KTooltip>
+                )}
               </header>
 
-              <div className="flex-1 overflow-y-auto px-4 py-2">
+              <div className="flex-1 overflow-y-auto px-5">
                 {lines.length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center gap-3 py-10 text-center text-muted-foreground">
-                    <span className="flex size-14 items-center justify-center rounded-2xl bg-muted">
-                      <ShoppingBag className="size-7" strokeWidth={1.5} />
+                    <span className="flex size-16 items-center justify-center rounded-2xl border-2 border-dashed border-input">
+                      <ShoppingBag className="size-8" strokeWidth={1.5} />
                     </span>
-                    <p className="text-sm">Add items to get started</p>
+                    <div>
+                      <p className="font-semibold text-foreground">No items yet</p>
+                      <p className="mt-0.5 text-sm">Tap a product to add it to the sale.</p>
+                    </div>
                   </div>
                 ) : (
                   <ul className="divide-y divide-border">
                     {lines.map((l) => (
-                      <li key={l.id} className={cn("py-3", l.fromHeld && l.problem && "-mx-2 rounded-xl bg-error-soft px-2")}>
-                        <div className="flex items-start justify-between gap-2">
+                      <li key={l.id} className={cn("py-3.5", l.fromHeld && l.problem && "-mx-2 rounded-xl bg-error-soft px-2")}>
+                        <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className={cn("truncate text-sm font-semibold", l.fromHeld && l.problem && "text-error-ink")}>{l.name}</p>
+                            <p className={cn("text-sm leading-snug font-semibold [overflow-wrap:anywhere]", l.fromHeld && l.problem && "text-error-ink")}>
+                              {l.name}
+                            </p>
                             {l.product && <p className="text-xs text-muted-foreground">{money(l.product.price)} each</p>}
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => removeLine(l.id)}
-                            aria-label={`Remove ${l.name}`}
-                            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-error-soft hover:text-error-ink"
-                          >
-                            <Trash2 className="size-4" />
-                          </button>
+                          <p className="shrink-0 text-base font-bold">{l.product ? money(roundMoney(l.product.price * l.quantity)) : "-"}</p>
                         </div>
-                        <div className="mt-2 flex items-center justify-between">
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => changeQuantity(l.id, -1)}
-                              disabled={l.quantity <= 1}
-                              aria-label="Decrease quantity"
-                              className="flex size-9 items-center justify-center rounded-lg border border-input transition-all duration-150 hover:bg-accent active:scale-95 disabled:opacity-40"
-                            >
-                              <Minus className="size-4" />
-                            </button>
-                            <span className="w-9 text-center text-base font-semibold tabular-nums">{l.quantity}</span>
-                            <button
-                              type="button"
-                              onClick={() => changeQuantity(l.id, 1)}
-                              disabled={!l.product || l.quantity >= l.product.stock}
-                              aria-label="Increase quantity"
-                              className="flex size-9 items-center justify-center rounded-lg border border-input transition-all duration-150 hover:bg-accent active:scale-95 disabled:opacity-40"
-                            >
-                              <Plus className="size-4" />
-                            </button>
+
+                        <div className="mt-2.5 flex items-center justify-between">
+                          <div className="inline-flex items-center rounded-xl border border-input shadow-(--raised-shadow)">
+                            <KTooltip label="One fewer" align="start">
+                              <button
+                                type="button"
+                                onClick={() => changeQuantity(l.id, -1)}
+                                disabled={l.quantity <= 1}
+                                aria-label="Decrease quantity"
+                                className="flex size-10 items-center justify-center rounded-l-xl transition-colors duration-150 hover:bg-accent active:scale-95 disabled:opacity-35"
+                              >
+                                <Minus className="size-4" />
+                              </button>
+                            </KTooltip>
+                            <span className="w-10 text-center text-base font-bold tabular-nums">{l.quantity}</span>
+                            <KTooltip label="One more" align="start">
+                              <button
+                                type="button"
+                                onClick={() => changeQuantity(l.id, 1)}
+                                disabled={!l.product || l.quantity >= l.product.stock}
+                                aria-label="Increase quantity"
+                                className="flex size-10 items-center justify-center rounded-r-xl transition-colors duration-150 hover:bg-accent active:scale-95 disabled:opacity-35"
+                              >
+                                <Plus className="size-4" />
+                              </button>
+                            </KTooltip>
                           </div>
-                          <p className="text-base font-bold">{l.product ? money(roundMoney(l.product.price * l.quantity)) : "-"}</p>
+                          <KTooltip label="Remove from cart" align="end">
+                            <button
+                              type="button"
+                              onClick={() => removeLine(l.id)}
+                              aria-label={`Remove ${l.name}`}
+                              className="flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-error-soft hover:text-error-ink"
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
+                          </KTooltip>
                         </div>
+
                         {l.problem && (
-                          <p role="alert" className="mt-1.5 text-xs font-medium text-error-ink">
+                          <p role="alert" className="mt-2 text-xs font-medium text-error-ink">
                             {l.fromHeld
                               ? `This item may no longer be available. Check before completing sale. (${l.problem})`
                               : `${l.problem}. Reduce the quantity or remove it.`}
@@ -570,11 +661,11 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
                 )}
               </div>
 
-              <footer className="space-y-3 border-t border-border px-4 py-3">
-                <dl className="space-y-1.5 text-sm">
+              <footer className="space-y-3.5 border-t-2 border-foreground bg-card px-5 py-4">
+                <dl className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">Subtotal</dt>
-                    <dd className="font-medium">{money(subtotal)}</dd>
+                    <dd className="font-semibold">{money(subtotal)}</dd>
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <dt className="text-muted-foreground">
@@ -596,64 +687,66 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
                     </dd>
                   </div>
                   {discountError && lines.length > 0 && (
-                    <p role="alert" className="text-right text-xs text-error-ink">
+                    <p role="alert" className="text-right text-xs font-medium text-error-ink">
                       {discountError}
                     </p>
                   )}
-                  <div className="flex items-baseline justify-between border-t border-border pt-2.5">
-                    <dt className="text-base font-semibold">Total</dt>
+                  <div className="flex items-baseline justify-between pt-1">
+                    <dt className="text-base font-bold">Total</dt>
                     <dd className="text-3xl font-bold tracking-tight">{money(total)}</dd>
                   </div>
                 </dl>
 
-                <div
-                  role="group"
-                  aria-label="Payment method"
-                  className={cn("grid grid-cols-3 gap-2 rounded-2xl", lines.length > 0 && !payment && "ring-2 ring-warning ring-offset-2 ring-offset-card")}
-                >
-                  {PAYMENT_METHODS.map((m) => {
-                    const active = payment === m;
-                    return (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => setPayment(m)}
-                        aria-pressed={active}
-                        style={active ? ACCENT : undefined}
-                        className={cn(
-                          "h-11 rounded-full border text-sm font-semibold transition-all duration-150 active:scale-95",
-                          active ? "border-transparent" : "border-input bg-background text-foreground hover:bg-accent"
-                        )}
-                      >
-                        {PAYMENT_LABELS[m]}
-                      </button>
-                    );
-                  })}
+                <div>
+                  <p className="mb-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Paid by</p>
+                  <div
+                    role="group"
+                    aria-label="Payment method"
+                    className={cn("grid grid-cols-3 gap-2 rounded-2xl", lines.length > 0 && !payment && "ring-2 ring-warning ring-offset-2 ring-offset-card")}
+                  >
+                    {PAYMENT_METHODS.map((m) => {
+                      const active = payment === m;
+                      const Icon = PAYMENT_ICON[m] ?? Wallet;
+                      return (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setPayment(m)}
+                          aria-pressed={active}
+                          className={cn(
+                            "flex h-14 flex-col items-center justify-center gap-0.5 rounded-xl border text-xs font-bold transition-all duration-150 active:scale-95",
+                            active
+                              ? "border-primary bg-primary text-primary-foreground shadow-(--btn-shadow)"
+                              : "border-input bg-card text-foreground hover:bg-accent"
+                          )}
+                        >
+                          <Icon className="size-5" strokeWidth={active ? 2.25 : 1.75} />
+                          {PAYMENT_LABELS[m]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {lines.length > 0 && !payment && (
+                    <p className="mt-2 text-center text-sm font-semibold text-warning-ink">Choose how the customer is paying</p>
+                  )}
                 </div>
-
-                {lines.length > 0 && !payment && (
-                  <p className="text-center text-sm font-medium text-warning-ink">Choose how the customer is paying</p>
-                )}
 
                 {saleError && <FormError>{saleError}</FormError>}
 
-                {lines.length > 0 && (
-                  <Button type="button" variant="secondary" size="lg" className="w-full" onClick={holdSale}>
-                    <Pause />
-                    Hold Sale
+                <div className="flex gap-2">
+                  {lines.length > 0 && (
+                    <KTooltip label="Save this sale for later and start a new one">
+                      <Button type="button" variant="secondary" size="lg" className="h-14 px-4" onClick={holdSale} aria-label="Hold sale">
+                        <Pause />
+                        <span className="hidden xl:inline">Hold</span>
+                        <span className="sr-only xl:hidden">Hold Sale</span>
+                      </Button>
+                    </KTooltip>
+                  )}
+                  <Button type="button" size="lg" disabled={!canComplete} onClick={() => setConfirmOpen(true)} className="h-14 flex-1 text-base font-bold">
+                    {lines.length > 0 ? `Charge ${money(total)}` : "Charge"}
                   </Button>
-                )}
-
-                <Button
-                  type="button"
-                  size="lg"
-                  disabled={!canComplete}
-                  onClick={() => setConfirmOpen(true)}
-                  style={ACCENT}
-                  className="h-14 w-full text-base font-bold"
-                >
-                  Complete Sale{lines.length > 0 && ` · ${money(total)}`}
-                </Button>
+                </div>
               </footer>
             </>
           )}
@@ -689,7 +782,7 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
                       <p className="shrink-0 text-lg font-bold">{money(heldOrderTotal(order))}</p>
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2">
-                      <Button type="button" onClick={() => restoreHeld(order)} style={ACCENT}>
+                      <Button type="button" onClick={() => restoreHeld(order)}>
                         Restore
                       </Button>
                       <Button type="button" variant="destructive" onClick={() => discardHeld(order)}>
@@ -737,9 +830,7 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
             )}
             <div className="flex items-center justify-between pt-1">
               <dt className="text-muted-foreground">Paid by</dt>
-              <dd style={ACCENT} className="rounded-full px-3 py-1 text-sm font-bold">
-                {PAYMENT_LABELS[payment]}
-              </dd>
+              <dd className="rounded-full bg-primary px-3 py-1 text-sm font-bold text-primary-foreground">{PAYMENT_LABELS[payment]}</dd>
             </div>
           </dl>
 
@@ -749,7 +840,7 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
             <Button type="button" variant="secondary" size="lg" disabled={submitting} onClick={() => setConfirmOpen(false)}>
               Cancel
             </Button>
-            <Button type="button" size="lg" disabled={submitting} onClick={submitSale} style={ACCENT}>
+            <Button type="button" size="lg" loading={submitting} onClick={submitSale}>
               {submitting ? "Processing..." : "Confirm"}
             </Button>
           </DialogFooter>

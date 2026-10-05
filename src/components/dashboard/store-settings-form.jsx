@@ -4,16 +4,24 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FormError } from "@/components/auth/form-error";
 import { useConfirm } from "@/components/ui/koetap/confirm-dialog";
+import { FormField } from "@/components/ui/koetap/form-field";
 import { useToast } from "@/components/ui/koetap/toast";
 import { CURRENCIES } from "@/lib/stores";
 import { readableTextColor } from "@/lib/pos";
+import { useFormValidation } from "@/lib/use-form-validation";
+import { HEX_COLOR, rules } from "@/lib/validate";
 
-const HEX = /^#[0-9a-fA-F]{6}$/;
+const SCHEMA = {
+  name: [rules.required("Store name"), rules.maxLength(100, "Store name")],
+  address: [rules.maxLength(200, "Address")],
+  lowStockThreshold: [rules.required("Low stock alert"), rules.number({ min: 0, whole: true, label: "Low stock alert" })],
+  accentColor: [rules.hexColor()],
+  receiptFooter: [rules.maxLength(300, "Receipt footer")],
+};
 
 function Section({ title, description, children }) {
   return (
@@ -31,23 +39,32 @@ export function StoreSettingsForm({ store }) {
   const router = useRouter();
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
-  const [form, setForm] = useState({
+  const initial = {
     name: store.name,
     address: store.address,
     currency: store.currency,
     lowStockThreshold: String(store.lowStockThreshold),
     accentColor: store.accentColor,
     receiptFooter: store.receiptFooter,
-  });
+  };
+  const [form, setForm] = useState(initial);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState(false);
+  const { errors, onBlur, validate } = useFormValidation(SCHEMA, form, { idPrefix: "s-" });
 
-  const update = (field) => (e) => setForm({ ...form, [field]: e.target.value });
-  const accentValid = HEX.test(form.accentColor);
+  const update = (field) => (e) => {
+    setForm({ ...form, [field]: e.target.value });
+    setError("");
+  };
+  const accentValid = HEX_COLOR.test(form.accentColor);
+  // Saving is only offered when something has actually changed
+  const dirty = Object.keys(initial).some((k) => form[k] !== initial[k]);
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!validate()) return;
+
     setError("");
     setSaving(true);
 
@@ -104,93 +121,112 @@ export function StoreSettingsForm({ store }) {
   }
 
   return (
-    <div>
-      <form onSubmit={handleSubmit}>
+    <div className="animate-contentIn">
+      <form onSubmit={handleSubmit} noValidate>
         <Section title="Store details" description="The basics shown across your store and on receipts.">
-          <div className="space-y-2">
-            <Label htmlFor="s-name">Store name</Label>
-            <Input id="s-name" required value={form.name} onChange={update("name")} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="s-address">Address</Label>
-            <Input id="s-address" value={form.address} onChange={update("address")} />
-          </div>
+          <FormField id="s-name" label="Store name" error={errors.name}>
+            {(a11y) => <Input {...a11y} value={form.name} onChange={update("name")} onBlur={onBlur("name")} />}
+          </FormField>
+          <FormField id="s-address" label="Address" optional error={errors.address}>
+            {(a11y) => <Input {...a11y} value={form.address} onChange={update("address")} onBlur={onBlur("address")} />}
+          </FormField>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="s-currency">Currency</Label>
-              <Select value={form.currency} onValueChange={(currency) => setForm({ ...form, currency })}>
-                <SelectTrigger id="s-currency" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CURRENCIES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="s-threshold">Low stock alert at</Label>
-              <Input
-                id="s-threshold"
-                type="number"
-                min="0"
-                step="1"
-                required
-                value={form.lowStockThreshold}
-                onChange={update("lowStockThreshold")}
-              />
-            </div>
+            <FormField id="s-currency" label="Currency">
+              {(a11y) => (
+                <Select value={form.currency} onValueChange={(currency) => setForm({ ...form, currency })}>
+                  <SelectTrigger {...a11y} className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CURRENCIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </FormField>
+            <FormField
+              id="s-lowStockThreshold"
+              label="Low stock alert at"
+              error={errors.lowStockThreshold}
+              hint="Warn when a product falls to this many."
+            >
+              {(a11y) => (
+                <Input
+                  {...a11y}
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  step="1"
+                  value={form.lowStockThreshold}
+                  onChange={update("lowStockThreshold")}
+                  onBlur={onBlur("lowStockThreshold")}
+                />
+              )}
+            </FormField>
           </div>
         </Section>
 
         <Section title="Branding" description="How your POS looks to your cashiers, and what your receipts say.">
-          <div className="space-y-2">
-            <Label htmlFor="s-color">Accent colour</Label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                aria-label="Pick accent colour"
-                value={accentValid ? form.accentColor : "#0a0a0a"}
-                onChange={update("accentColor")}
-                className="h-10 w-12 cursor-pointer rounded-xl border border-input bg-background p-1"
-              />
-              <Input id="s-color" value={form.accentColor} onChange={update("accentColor")} placeholder="#0A0A0A" maxLength={7} />
-            </div>
-            <div className="flex items-center gap-3 pt-1">
-              <span className="text-xs text-muted-foreground">Preview</span>
-              <span
-                className="inline-flex h-9 items-center rounded-xl px-4 text-sm font-medium"
-                style={
-                  accentValid
-                    ? { background: form.accentColor, color: readableTextColor(form.accentColor) }
-                    : { background: "var(--primary)", color: "var(--primary-foreground)" }
-                }
-              >
-                Complete Sale
-              </span>
-              {!accentValid && <span className="text-xs text-muted-foreground">Leave empty for Koetap black</span>}
-            </div>
-          </div>
+          <FormField id="s-accentColor" label="Accent colour" optional error={errors.accentColor}>
+            {(a11y) => (
+              <>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    aria-label="Pick accent colour"
+                    value={accentValid ? form.accentColor : "#0a0a0a"}
+                    onChange={update("accentColor")}
+                    className="h-10 w-12 cursor-pointer rounded-xl border border-input bg-background p-1 transition-colors duration-150 hover:border-muted-foreground/60"
+                  />
+                  <Input
+                    {...a11y}
+                    value={form.accentColor}
+                    onChange={update("accentColor")}
+                    onBlur={onBlur("accentColor")}
+                    placeholder="#0A0A0A"
+                    maxLength={7}
+                  />
+                </div>
+                <div className="flex items-center gap-3 pt-2">
+                  <span className="text-xs text-muted-foreground">Preview</span>
+                  <span
+                    className="inline-flex h-9 items-center rounded-xl px-4 text-sm font-medium transition-colors duration-200"
+                    style={
+                      accentValid
+                        ? { background: form.accentColor, color: readableTextColor(form.accentColor) }
+                        : { background: "var(--primary)", color: "var(--primary-foreground)" }
+                    }
+                  >
+                    Complete Sale
+                  </span>
+                  {!accentValid && <span className="text-xs text-muted-foreground">Leave empty for Koetap black</span>}
+                </div>
+              </>
+            )}
+          </FormField>
 
-          <div className="space-y-2">
-            <Label htmlFor="s-footer">Receipt footer</Label>
-            <Textarea
-              id="s-footer"
-              value={form.receiptFooter}
-              onChange={update("receiptFooter")}
-              placeholder="Thank you for shopping with us!"
-              rows={3}
-            />
-          </div>
+          <FormField id="s-receiptFooter" label="Receipt footer" optional error={errors.receiptFooter}>
+            {(a11y) => (
+              <Textarea
+                {...a11y}
+                value={form.receiptFooter}
+                onChange={update("receiptFooter")}
+                onBlur={onBlur("receiptFooter")}
+                placeholder="Thank you for shopping with us!"
+                rows={3}
+              />
+            )}
+          </FormField>
         </Section>
 
         <div className="flex flex-wrap items-center gap-3 border-t border-border pt-6">
-          <Button type="submit" size="lg" disabled={saving}>
+          <Button type="submit" size="lg" loading={saving} disabled={!dirty}>
             {saving ? "Saving..." : "Save changes"}
           </Button>
+          {!dirty && !error && <span className="text-sm text-muted-foreground">No changes to save</span>}
           {error && <FormError>{error}</FormError>}
         </div>
       </form>
@@ -207,7 +243,7 @@ export function StoreSettingsForm({ store }) {
                 : "This store is inactive. Reactivate it to use it again."}
             </p>
           </div>
-          <Button type="button" variant={store.isActive ? "destructive" : "secondary"} disabled={toggling} onClick={toggleActive}>
+          <Button type="button" variant={store.isActive ? "destructive" : "secondary"} loading={toggling} onClick={toggleActive}>
             {toggling ? "Working..." : store.isActive ? "Deactivate store" : "Reactivate store"}
           </Button>
         </div>

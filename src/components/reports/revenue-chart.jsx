@@ -15,9 +15,9 @@ const shortDate = (label) =>
 // Colours are CSS variables, so the chart follows light and dark mode without any extra code.
 const AXIS_TICK = { fontSize: 12, fill: "var(--muted-foreground)" };
 
-export function RevenueChart({ points, interval, currency, color = "var(--foreground)" }) {
+export function RevenueChart({ points, interval, currency, color = "var(--foreground)", heightClass = "h-72" }) {
   return (
-    <div className="h-72 w-full" role="img" aria-label={`Revenue ${interval === "hour" ? "by hour" : "by day"}`}>
+    <div className={`${heightClass} w-full`} role="img" aria-label={`Revenue ${interval === "hour" ? "by hour" : "by day"}`}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={points} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />

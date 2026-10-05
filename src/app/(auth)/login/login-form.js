@@ -8,8 +8,11 @@ import { AuthShell } from "@/components/auth/auth-shell";
 import { FormError } from "@/components/auth/form-error";
 import { GoogleButton, OrDivider } from "@/components/auth/google-button";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { KInput } from "@/components/ui/koetap/KInput";
+import { Input } from "@/components/ui/input";
+import { FormField } from "@/components/ui/koetap/form-field";
+import { PasswordInput } from "@/components/ui/koetap/password-input";
+import { useFormValidation } from "@/lib/use-form-validation";
+import { rules } from "@/lib/validate";
 
 const HOME = { superadmin: "/admin", owner: "/dashboard", cashier: "/pos" };
 
@@ -21,20 +24,32 @@ const CREDENTIALS_ERRORS = {
   suspended: "Your account has been suspended. Contact support.",
 };
 
+const SCHEMA = {
+  email: [rules.required("Email"), rules.email()],
+  password: [rules.required("Password")],
+};
+
 // accessDenied: the user was bounced back from Google sign-in because the account is deactivated.
-export default function LoginForm({ accessDenied = false }) {
+export default function LoginForm({ accessDenied = false, initialError = "" }) {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState(accessDenied ? DEACTIVATED_MESSAGE : "");
+  const [form, setForm] = useState({ email: "", password: "" });
+  const [error, setError] = useState(accessDenied ? DEACTIVATED_MESSAGE : initialError);
   const [loading, setLoading] = useState(false);
+  const { errors, onBlur, validate } = useFormValidation(SCHEMA, form);
+
+  const update = (field) => (e) => {
+    setForm({ ...form, [field]: e.target.value });
+    setError("");
+  };
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!validate()) return;
+
     setError("");
     setLoading(true);
 
-    const res = await signIn("credentials", { email, password, redirect: false });
+    const res = await signIn("credentials", { email: form.email, password: form.password, redirect: false });
     if (res?.error) {
       // res.code carries the specific reason thrown by the credentials provider.
       setError(CREDENTIALS_ERRORS[res.code] ?? "Invalid email or password");
@@ -48,43 +63,40 @@ export default function LoginForm({ accessDenied = false }) {
   }
 
   return (
-    <AuthShell
-      heading="Welcome back"
-      subtext="Sign in to your Koetap account"
-      footer={null}
-    >
+    <AuthShell heading="Welcome back" subtext="Sign in to your Koetap account" footer={null}>
       <GoogleButton label="Sign in with Google" callbackUrl="/login" />
 
       <OrDivider>or continue with email</OrDivider>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <KInput
-            id="email"
-            type="email"
-            required
-            autoComplete="email"
-            placeholder="you@business.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-          <KInput
-            id="password"
-            type="password"
-            required
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
+        <FormField id="email" label="Email" error={errors.email}>
+          {(a11y) => (
+            <Input
+              {...a11y}
+              type="email"
+              autoComplete="email"
+              placeholder="you@business.com"
+              value={form.email}
+              onChange={update("email")}
+              onBlur={onBlur("email")}
+            />
+          )}
+        </FormField>
+        <FormField id="password" label="Password" error={errors.password}>
+          {(a11y) => (
+            <PasswordInput
+              {...a11y}
+              autoComplete="current-password"
+              value={form.password}
+              onChange={update("password")}
+              onBlur={onBlur("password")}
+            />
+          )}
+        </FormField>
 
         {error && <FormError>{error}</FormError>}
 
-        <Button type="submit" size="lg" className="w-full" disabled={loading}>
+        <Button type="submit" size="lg" className="w-full" loading={loading}>
           {loading ? "Signing in..." : "Sign in"}
         </Button>
       </form>

@@ -3,7 +3,8 @@
 import { useCallback, useSyncExternalStore } from "react";
 
 // Whether a desktop sidebar is collapsed to icons. Remembered per sidebar in localStorage, and read with
-// useSyncExternalStore so the server render (always expanded) can't mismatch the browser.
+// useSyncExternalStore so the server render can't mismatch the browser.
+// `defaultCollapsed` is what a first-time visitor gets; once they press the toggle, their choice wins.
 const listeners = new Set();
 const subscribe = (onChange) => {
   listeners.add(onChange);
@@ -14,18 +15,19 @@ const subscribe = (onChange) => {
   };
 };
 
-export function useSidebarCollapsed(key) {
+export function useSidebarCollapsed(key, defaultCollapsed = false) {
   const storageKey = `koetap-sidebar-${key}`;
   const collapsed = useSyncExternalStore(
     subscribe,
     () => {
       try {
-        return localStorage.getItem(storageKey) === "1";
+        const saved = localStorage.getItem(storageKey);
+        return saved === null ? defaultCollapsed : saved === "1";
       } catch {
-        return false;
+        return defaultCollapsed;
       }
     },
-    () => false
+    () => defaultCollapsed
   );
 
   const toggle = useCallback(() => {

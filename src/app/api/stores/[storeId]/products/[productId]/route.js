@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Product from "@/models/Product";
 import InventoryLog from "@/models/InventoryLog";
 import { authorizeStore } from "@/lib/api-auth";
+import { ensureCategory } from "@/lib/categories";
 import { parseProductInput, serializeProduct } from "@/lib/products";
 
 const notFound = () => NextResponse.json({ error: "Product not found" }, { status: 404 });
@@ -44,6 +45,8 @@ export async function PATCH(request, { params }) {
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "No changes provided" }, { status: 400 });
   }
+
+  await ensureCategory(store, data.category);
 
   // returnDocument: "before" returns the document as it was, which gives us the previous stock for the log.
   const product = await Product.findOneAndUpdate(

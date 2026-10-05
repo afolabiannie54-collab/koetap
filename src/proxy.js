@@ -33,7 +33,8 @@ export default auth((req) => {
 
   // Google sign-ups must name their business before using anything else.
   // (=== false so sessions issued before this flag existed aren't bounced.)
-  if (user && user.setupComplete === false) {
+  // (A super admin has no business to name, so is never sent to setup.)
+  if (user && user.setupComplete === false && role !== "superadmin") {
     return pathname === "/setup"
       ? NextResponse.next()
       : NextResponse.redirect(new URL("/setup", req.url));
