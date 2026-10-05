@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { Store as StoreIcon } from "lucide-react";
 import { auth } from "@/lib/auth";
 import connectDB from "@/lib/db";
@@ -19,6 +20,10 @@ export default async function StoresPage() {
   await connectDB();
   const docs = await Store.find(businessFilter(user)).sort({ createdAt: -1 });
   const stores = docs.map(serializeStore);
+
+  // One store: there is nothing to choose from, so go straight to it. (Adding another store is in its top bar.)
+  if (stores.length === 1) redirect(`/stores/${stores[0].id}`);
+
   const counts = await getStoreCounts(stores.map((s) => s.id));
 
   return (
