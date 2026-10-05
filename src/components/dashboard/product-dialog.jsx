@@ -163,7 +163,7 @@ export function ProductDialog({ storeId, product, storeThreshold, categories, on
                 </Select>
               )}
             </FormField>
-            <FormField id="p-sku" label="SKU" optional error={errors.sku}>
+            <FormField id="p-sku" label="SKU" optional help="A short code of your own for this product, such as a barcode number or shelf code. You can search for it in the POS." error={errors.sku}>
               {(a11y) => <Input {...a11y} value={form.sku} onChange={update("sku")} onBlur={onBlur("sku")} />}
             </FormField>
           </div>
@@ -187,7 +187,7 @@ export function ProductDialog({ storeId, product, storeThreshold, categories, on
             <FormField id="p-price" label="Price" error={errors.price}>
               {(a11y) => <Input {...a11y} {...numberProps("price", "0.01")} />}
             </FormField>
-            <FormField id="p-costPrice" label="Cost price" optional error={errors.costPrice}>
+            <FormField id="p-costPrice" label="Cost price" optional help="What this product costs you to buy or make. It isn't shown to cashiers or customers." error={errors.costPrice}>
               {(a11y) => <Input {...a11y} {...numberProps("costPrice", "0.01")} />}
             </FormField>
           </div>
@@ -205,6 +205,7 @@ export function ProductDialog({ storeId, product, storeThreshold, categories, on
               id="p-lowStockThreshold"
               label="Low stock threshold"
               optional
+              help="When this product's stock falls to this number or below, it's flagged as running low. Leave it empty to use the store's default."
               error={errors.lowStockThreshold}
               hint={`Store default: ${storeThreshold}`}
             >

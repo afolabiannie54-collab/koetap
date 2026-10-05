@@ -23,7 +23,7 @@ export function relativeTime(date, now = new Date()) {
 // Everything the dashboard and a store's overview show, for one or more stores, in a handful of queries.
 //   stores: [{ id, name, currency, lowStockThreshold }]
 // Days are UTC days, like the reports, so "today" here means the same as "Today" there.
-export async function getOverview(stores) {
+export async function getOverview(stores, { recentLimit = 8 } = {}) {
   await connectDB();
   const ids = stores.map((s) => new mongoose.Types.ObjectId(s.id));
   const storeName = new Map(stores.map((s) => [s.id, s.name]));
@@ -45,7 +45,7 @@ export async function getOverview(stores) {
         },
       },
     ]),
-    Sale.find({ storeId: { $in: ids } }).sort({ createdAt: -1 }).limit(8).lean(),
+    Sale.find({ storeId: { $in: ids } }).sort({ createdAt: -1 }).limit(recentLimit).lean(),
     // Each store has its own default "low" level, so ask store by store (there are only a few)
     Promise.all(
       stores.map((s) =>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FormError } from "@/components/auth/form-error";
 import { useConfirm } from "@/components/ui/koetap/confirm-dialog";
 import { FormField } from "@/components/ui/koetap/form-field";
+import { InfoTip } from "@/components/ui/koetap/info-tip";
+import { KTooltip } from "@/components/ui/koetap/tooltip";
 import { useToast } from "@/components/ui/koetap/toast";
 import { CURRENCIES } from "@/lib/stores";
 import { readableTextColor } from "@/lib/pos";
@@ -127,11 +130,15 @@ export function StoreSettingsForm({ store }) {
           <FormField id="s-name" label="Store name" error={errors.name}>
             {(a11y) => <Input {...a11y} value={form.name} onChange={update("name")} onBlur={onBlur("name")} />}
           </FormField>
-          <FormField id="s-address" label="Address" optional error={errors.address}>
+          <FormField id="s-address" label="Address" optional help="Shown under your store's name here and printed at the top of receipts." error={errors.address}>
             {(a11y) => <Input {...a11y} value={form.address} onChange={update("address")} onBlur={onBlur("address")} />}
           </FormField>
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField id="s-currency" label="Currency">
+            <FormField
+              id="s-currency"
+              label="Currency"
+              help="The currency prices, sales and receipts are shown in. Changing it only changes how amounts are labelled; it doesn't convert the prices you've already set."
+            >
               {(a11y) => (
                 <Select value={form.currency} onValueChange={(currency) => setForm({ ...form, currency })}>
                   <SelectTrigger {...a11y} className="w-full">
@@ -150,6 +157,7 @@ export function StoreSettingsForm({ store }) {
             <FormField
               id="s-lowStockThreshold"
               label="Low stock alert at"
+              help="When a product's stock falls to this number or below, it's flagged as running low on the overview and in the products list. You can set a different level for an individual product."
               error={errors.lowStockThreshold}
               hint="Warn when a product falls to this many."
             >
@@ -170,7 +178,47 @@ export function StoreSettingsForm({ store }) {
         </Section>
 
         <Section title="Branding" description="How your POS looks to your cashiers, and what your receipts say.">
-          <FormField id="s-accentColor" label="Accent colour" optional error={errors.accentColor}>
+          {/* Where the store's logo goes. Upload isn't built yet, so this holds the place (and shows the initial that stands in for it). */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1">
+              <span className="text-sm leading-none font-medium">Store logo</span>
+              <InfoTip label="About the store logo">
+                Your logo appears at the top of this store&apos;s sidebar, in the POS header and on receipts. Until you can upload one, your store&apos;s first letter stands in for it.
+              </InfoTip>
+            </div>
+            <div className="flex items-center gap-4 rounded-2xl border-2 border-dashed border-input p-4">
+              {store.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- logo URLs are arbitrary external images
+                <img src={store.logoUrl} alt="" className="size-16 shrink-0 rounded-2xl border border-border object-cover" />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  style={{ background: accentValid ? form.accentColor : "var(--foreground)", color: accentValid ? readableTextColor(form.accentColor) : "var(--background)" }}
+                  className="flex size-16 shrink-0 items-center justify-center rounded-2xl text-3xl font-bold"
+                >
+                  {(form.name.trim().charAt(0) || "S").toUpperCase()}
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">Logo upload is coming soon</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">Square images work best. Until then, your store&apos;s first letter is shown.</p>
+              </div>
+              <KTooltip label="Logo upload isn't available yet" align="end">
+                <Button type="button" variant="secondary" size="sm" disabled>
+                  <ImagePlus />
+                  Upload
+                </Button>
+              </KTooltip>
+            </div>
+          </div>
+
+          <FormField
+            id="s-accentColor"
+            label="Accent colour"
+            optional
+            help="Your store's colour. It's used for the POS header and buttons, your logo tile, the Open POS button and the marker beside the current section. Leave it empty to stay black and white."
+            error={errors.accentColor}
+          >
             {(a11y) => (
               <>
                 <div className="flex items-center gap-2">
@@ -208,7 +256,13 @@ export function StoreSettingsForm({ store }) {
             )}
           </FormField>
 
-          <FormField id="s-receiptFooter" label="Receipt footer" optional error={errors.receiptFooter}>
+          <FormField
+            id="s-receiptFooter"
+            label="Receipt footer"
+            optional
+            help="A line of text printed at the bottom of every receipt, such as a thank-you or your opening hours."
+            error={errors.receiptFooter}
+          >
             {(a11y) => (
               <Textarea
                 {...a11y}
@@ -233,7 +287,12 @@ export function StoreSettingsForm({ store }) {
 
       {/* Danger zone */}
       <section className="mt-12 rounded-2xl border border-destructive/40 p-6">
-        <h2 className="text-base font-semibold tracking-tight text-destructive">Danger zone</h2>
+        <div className="flex items-center gap-1.5">
+          <h2 className="text-base font-semibold tracking-tight text-destructive">Danger zone</h2>
+          <InfoTip label="About the danger zone">
+            Actions here change how your whole store works. Deactivating is reversible: nothing is deleted, and you can reactivate the store whenever you like.
+          </InfoTip>
+        </div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
           <div className="max-w-lg">
             <h3 className="text-sm font-medium">{store.isActive ? "Deactivate this store" : "Reactivate this store"}</h3>
@@ -243,9 +302,18 @@ export function StoreSettingsForm({ store }) {
                 : "This store is inactive. Reactivate it to use it again."}
             </p>
           </div>
-          <Button type="button" variant={store.isActive ? "destructive" : "secondary"} loading={toggling} onClick={toggleActive}>
-            {toggling ? "Working..." : store.isActive ? "Deactivate store" : "Reactivate store"}
-          </Button>
+          <KTooltip
+            label={
+              store.isActive
+                ? "Stops sales on this store straight away. Nothing is deleted, and you can reactivate it any time."
+                : "Turns this store back on so cashiers can sell again."
+            }
+            align="end"
+          >
+            <Button type="button" variant={store.isActive ? "destructive" : "secondary"} loading={toggling} onClick={toggleActive}>
+              {toggling ? "Working..." : store.isActive ? "Deactivate store" : "Reactivate store"}
+            </Button>
+          </KTooltip>
         </div>
       </section>
 

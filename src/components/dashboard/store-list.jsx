@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { ChevronRight, MapPin } from "lucide-react";
+import { ArrowUpRight, MapPin } from "lucide-react";
 import { KBadge } from "@/components/ui/koetap/KBadge";
 
 // The stores as one list on one surface: a row per store that opens it. Replaces a card per store, which
 // felt empty with one store. `hrefFor` / `hint` let the reports page reuse it to open a store's reports.
-export function StoreList({ stores, counts, hrefFor = (s) => `/stores/${s.id}`, hint = "Open" }) {
+export function StoreList({ stores, counts, hrefFor = (s) => `/stores/${s.id}`, hint = "Open store" }) {
   return (
     <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
       {stores.map((store) => {
@@ -48,7 +48,7 @@ export function StoreList({ stores, counts, hrefFor = (s) => `/stores/${s.id}`, 
 
               <span className="flex shrink-0 items-center gap-1 text-sm font-medium text-muted-foreground transition-colors group-hover/row:text-foreground">
                 <span className="hidden md:inline">{hint}</span>
-                <ChevronRight className="size-5 transition-transform duration-150 group-hover/row:translate-x-0.5" />
+                <ArrowUpRight className="size-5 transition-transform duration-150 group-hover/row:translate-x-0.5 group-hover/row:-translate-y-0.5" />
               </span>
             </Link>
           </li>
