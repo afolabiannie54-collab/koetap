@@ -73,6 +73,7 @@ export default async function AdminBusinessDetailPage({ params }) {
             name={business.name}
             isActive={business.isActive}
             plan={business.plan}
+            impact={{ stores: stores.length, sales: totals.totalSales }}
           />
         </CardContent>
       </Card>

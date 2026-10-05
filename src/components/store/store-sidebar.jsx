@@ -115,7 +115,7 @@ function SidebarBody({ storeId, logo, name, status, collapsed = false, onToggle,
                 onClick={onNavigate}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "relative flex h-10 items-center gap-3 rounded-xl px-3 text-sm transition-colors duration-150",
+                  "relative flex h-10 w-full items-center gap-3 rounded-xl px-3 text-sm transition-colors duration-150",
                   collapsed && "w-full justify-center px-0",
                   active ? "bg-accent font-bold text-foreground" : "font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}

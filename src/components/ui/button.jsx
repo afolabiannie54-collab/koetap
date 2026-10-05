@@ -51,9 +51,11 @@ function Button({
   loading = false,
   children,
   disabled,
+  onMouseDown,
   ...props
 }) {
   const Comp = asChild ? Slot.Root : "button"
+  const isSubmit = !asChild && props.type === "submit"
 
   return (
     <Comp
@@ -64,6 +66,9 @@ function Button({
       // loading: a spinner before the label, and the button can't be pressed again while it works
       disabled={disabled || loading}
       aria-busy={loading || undefined}
+      // A submit button doesn't take focus from the field being edited when it is pressed. Otherwise leaving that
+      // field shows its error message, which pushes the button down, and the click that was meant for it is lost.
+      onMouseDown={isSubmit ? (e) => { onMouseDown?.(e); e.preventDefault() } : onMouseDown}
       {...props}
     >
       {asChild ? (

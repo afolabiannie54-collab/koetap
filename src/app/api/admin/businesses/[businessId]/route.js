@@ -7,6 +7,7 @@ import User from "@/models/User";
 import { requireSuperadmin } from "@/lib/admin-api";
 import { getBusinessDetail } from "@/lib/admin-data";
 import { forgetBusinessStatus } from "@/lib/business-status";
+import { deleteBusinessData } from "@/lib/deletion";
 
 const PLANS = ["free", "paid"];
 
@@ -136,4 +137,30 @@ export async function PATCH(request, { params }) {
   } finally {
     await session.endSession();
   }
+}
+
+// Deletes a business for good: its owner and cashiers, stores, products, stock history, sales and images.
+// It must be suspended first (a deliberate extra step), and the body must repeat the business's exact name.
+export async function DELETE(request, { params }) {
+  const { user, error } = await requireSuperadmin();
+  if (error) return error;
+
+  const { businessId } = await params;
+  if (!mongoose.isValidObjectId(businessId)) return notFound();
+
+  await connectDB();
+  const business = await Business.findById(businessId);
+  if (!business) return notFound();
+
+  if (business.isActive !== false) {
+    return NextResponse.json({ error: "Suspend this business before deleting it." }, { status: 409 });
+  }
+  const body = await request.json().catch(() => ({}));
+  if (body.confirmName !== business.name) {
+    return NextResponse.json({ error: "Type the business's name exactly to confirm." }, { status: 400 });
+  }
+
+  const counts = await deleteBusinessData(business, user, "business");
+  forgetBusinessStatus(businessId);
+  return NextResponse.json({ message: "Business deleted", counts });
 }

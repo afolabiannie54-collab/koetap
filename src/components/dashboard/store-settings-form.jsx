@@ -11,6 +11,8 @@ import { useConfirm } from "@/components/ui/koetap/confirm-dialog";
 import { FormField } from "@/components/ui/koetap/form-field";
 import { InfoTip } from "@/components/ui/koetap/info-tip";
 import { KImageUpload } from "@/components/ui/koetap/KImageUpload";
+import { plural } from "@/lib/utils";
+import { TypeToConfirmDialog } from "@/components/ui/koetap/type-to-confirm-dialog";
 import { KTooltip } from "@/components/ui/koetap/tooltip";
 import { useToast } from "@/components/ui/koetap/toast";
 import { CURRENCIES } from "@/lib/stores";
@@ -38,7 +40,8 @@ function Section({ title, description, children }) {
   );
 }
 
-export function StoreSettingsForm({ store }) {
+// impact: { products, cashiers, sales } in this store, so the delete warning can say exactly what goes.
+export function StoreSettingsForm({ store, impact = { products: 0, cashiers: 0, sales: 0 } }) {
   const router = useRouter();
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
@@ -56,6 +59,7 @@ export function StoreSettingsForm({ store }) {
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [toggling, setToggling] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const { errors, onBlur, validate } = useFormValidation(SCHEMA, form, { idPrefix: "s-" });
 
   const update = (field) => (e) => {
@@ -87,6 +91,24 @@ export function StoreSettingsForm({ store }) {
     }
     toast.success("Changes saved");
     router.refresh();
+  }
+
+  async function deleteStoreForever() {
+    let res;
+    try {
+      res = await fetch(`/api/stores/${store.id}?permanent=true`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmName: store.name }),
+      });
+    } catch {
+      return "Couldn't reach the server. Check your connection and try again.";
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return data.error || "Could not delete the store.";
+    toast.success(`${store.name} was deleted`);
+    router.push("/dashboard");
+    return ""; // stays busy until the page changes
   }
 
   async function toggleActive() {
@@ -132,7 +154,7 @@ export function StoreSettingsForm({ store }) {
           <KImageUpload
             label="Store logo"
             hint="Shown at the top of your store's sidebar, on your POS screen and on receipts."
-            shape="circle"
+            shape="logo"
             size={96}
             optional
             value={form.logoUrl || null}
@@ -298,6 +320,50 @@ export function StoreSettingsForm({ store }) {
           </KTooltip>
         </div>
       </section>
+
+      <section className="mt-6 rounded-2xl border border-destructive/40 p-6">
+        <div className="flex items-center gap-1.5">
+          <h2 className="text-base font-semibold tracking-tight text-destructive">Delete this store permanently</h2>
+          <InfoTip label="About deleting a store">
+            Unlike deactivating, this can&apos;t be undone. The store, its products, its cashier accounts, its stock history
+            and all of its sales are removed for good.
+          </InfoTip>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
+          <p className="max-w-lg text-sm text-muted-foreground">
+            Removes {store.name} and everything in it: {plural(impact.products, "product")},{" "}
+            {plural(impact.cashiers, "cashier account")} and {plural(impact.sales, "sale")}. If you only want to stop selling for now, deactivate it above instead.
+          </p>
+          <KTooltip label="Permanently deletes this store and everything in it. You'll be asked to confirm." align="end">
+            <Button type="button" variant="destructive" onClick={() => setDeleteOpen(true)}>
+              Delete store
+            </Button>
+          </KTooltip>
+        </div>
+      </section>
+
+      {deleteOpen && (
+        <TypeToConfirmDialog
+          title={`Delete ${store.name}?`}
+          expected={store.name}
+          confirmLabel="Delete store"
+          onClose={() => setDeleteOpen(false)}
+          onConfirm={deleteStoreForever}
+          description={
+            <>
+              <p>
+                This permanently deletes <strong className="text-foreground">{store.name}</strong> and everything in it:
+              </p>
+              <ul className="list-disc space-y-0.5 pl-5">
+                <li>{plural(impact.products, "product")} and their stock history</li>
+                <li>{plural(impact.cashiers, "cashier account")}</li>
+                <li>{plural(impact.sales, "sale")} and their full history</li>
+              </ul>
+              <p>It can&apos;t be undone. If you might want a copy of your sales, export them from Reports first.</p>
+            </>
+          }
+        />
+      )}
 
       {confirmDialog}
     </div>

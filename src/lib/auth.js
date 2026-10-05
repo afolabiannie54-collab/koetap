@@ -6,7 +6,7 @@ import { MongoClient } from "mongodb";
 import bcrypt from "bcryptjs";
 import connectDB from "@/lib/db";
 import User from "@/models/User";
-import { isBusinessSuspended } from "@/lib/business-status";
+import { getBusinessState } from "@/lib/business-status";
 
 const uri = process.env.MONGODB_URI;
 
@@ -69,7 +69,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         // A suspended business turns its cashiers off too, and they should hear "suspended",
         // not "ask your owner". Owners may still sign in: they're sent to /suspended afterwards.
         if (user.role !== "superadmin" && (user.role === "cashier" || !user.isActive)) {
-          if (await isBusinessSuspended(user.businessId, { fresh: true })) throw new SuspendedError();
+          if ((await getBusinessState(user.businessId, { fresh: true })) === "suspended") throw new SuspendedError();
         }
         if (!user.isActive) throw new DeactivatedError();
 
@@ -113,7 +113,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         // A super admin has no business and never goes through setup.
         token.setupComplete = token.role === "superadmin" ? true : (dbUser?.setupComplete ?? Boolean(dbUser?.businessId));
         token.suspended =
-          token.role !== "superadmin" && (await isBusinessSuspended(token.businessId, { fresh: true }));
+          token.role !== "superadmin" && (await getBusinessState(token.businessId, { fresh: true })) === "suspended";
       } else {
         if (token.role === "cashier" && token.id) {
           // Cashiers are deactivated by their owner, and a cookie issued earlier would otherwise
@@ -125,7 +125,10 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         // Re-checked on every session read so suspending a business takes effect straight away.
         // The proxy and the API routes act on this flag.
         if (token.role !== "superadmin") {
-          token.suspended = await isBusinessSuspended(token.businessId);
+          const state = await getBusinessState(token.businessId);
+          // The business was deleted (by the super admin, or by the owner closing their account): end the session.
+          if (state === "gone") return null;
+          token.suspended = state === "suspended";
         }
       }
       return token;

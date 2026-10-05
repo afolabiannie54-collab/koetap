@@ -140,7 +140,7 @@ export function CategoryManager({ storeId, categories, onClose }) {
             icon={Tags}
             title="No categories yet"
             description="Add your first one above, for example Drinks or Snacks."
-            className="py-8"
+            size="sm"
           />
         ) : (
           <ul className="max-h-[40dvh] divide-y divide-border overflow-y-auto rounded-xl border border-border">

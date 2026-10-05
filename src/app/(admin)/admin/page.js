@@ -51,7 +51,7 @@ export default async function AdminOverviewPage() {
         </CardHeader>
         <CardContent>
           {activity.length === 0 ? (
-            <EmptyState icon={ShoppingBag} title="No sales yet" description="Sales from every business will show up here." className="border-0 py-8" />
+            <EmptyState icon={ShoppingBag} title="No sales yet" description="Sales from every business will show up here." size="sm" className="border-0" />
           ) : (
             <ul className="divide-y divide-border">
               {activity.map((s) => (

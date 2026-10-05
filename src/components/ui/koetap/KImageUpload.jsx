@@ -14,6 +14,13 @@ const SHRINK_ABOVE_BYTES = 2.5 * 1024 * 1024;
 const MAX_SIDE = 2000;
 const HARD_LIMIT_BYTES = 25 * 1024 * 1024; // refuse to even try anything larger than this
 
+// Tells the server an uploaded image was not kept, so it can delete it right away. The server only deletes images that
+// no store or product uses, so it is always safe to call; failures are ignored (the daily cleanup catches strays).
+export function discardImage(url) {
+  if (!url) return;
+  fetch("/api/upload", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }), keepalive: true }).catch(() => {});
+}
+
 async function prepare(file) {
   if (file.type === "image/gif") return file;
   let bitmap;
@@ -61,6 +68,7 @@ export function KImageUpload({
   const [error, setError] = useState("");
   const [dragging, setDragging] = useState(false);
   const round = shape === "circle";
+  const whole = shape === "logo"; // show the whole image, uncropped, in a rounded square
 
   function setBusy(busy) {
     setUploading(busy);
@@ -102,6 +110,7 @@ export function KImageUpload({
         setError(data.error || "The image couldn't be uploaded. Please try again.");
         return;
       }
+      discardImage(value); // the one it replaces
       onChange(data.url);
     } finally {
       setBusy(false);
@@ -151,9 +160,9 @@ export function KImageUpload({
           {value ? (
             <>
               <FadeImage
-                src={imageThumb(value, { w: size * 2, h: size * 2, fit: "fill" })}
+                src={imageThumb(value, { w: size * 2, h: size * 2, fit: whole ? "limit" : "fill" })}
                 alt=""
-                className="size-full object-cover"
+                className={cn("size-full", whole ? "bg-white object-contain p-2" : "object-cover")}
               />
               {/* On hover or keyboard focus: a dark cover that says what a click does */}
               <span className="absolute inset-0 flex items-center justify-center bg-black/55 px-2 text-center text-xs font-semibold text-white opacity-0 transition-opacity duration-200 group-hover/upload:opacity-100 group-focus-visible/upload:opacity-100">
@@ -181,6 +190,7 @@ export function KImageUpload({
               type="button"
               onClick={() => {
                 setError("");
+                discardImage(value);
                 onChange(null);
               }}
               aria-label="Remove image"

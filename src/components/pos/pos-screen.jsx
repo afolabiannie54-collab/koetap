@@ -28,6 +28,7 @@ import { ThemeToggle } from "@/components/ui/koetap/theme-toggle";
 import { useToast } from "@/components/ui/koetap/toast";
 import { KTooltip } from "@/components/ui/koetap/tooltip";
 import { ReceiptPanel, StoreBrand } from "@/components/pos/receipt-panel";
+import { EmptyIcon } from "@/components/ui/koetap/empty-icon";
 import { FadeImage } from "@/components/ui/koetap/fade-image";
 import { PAYMENT_LABELS, PAYMENT_METHODS, newSaleKey, readableTextColor, roundMoney } from "@/lib/pos";
 import { formatMoney } from "@/lib/stores";
@@ -461,8 +462,8 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
           <div className="flex-1 overflow-y-auto bg-muted/40 p-4 pb-28 lg:pb-4">
             {products.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-20 text-center text-muted-foreground">
-                <ShoppingBag className="size-10" strokeWidth={1.5} />
-                <p className="font-medium text-foreground">No products in this store yet</p>
+                <EmptyIcon icon={ShoppingBag} />
+                <p className="text-xl font-bold text-foreground">No products in this store yet</p>
                 <p className="text-sm">Add products from the dashboard and they&apos;ll show up here.</p>
               </div>
             ) : visible.length === 0 ? (
@@ -598,11 +599,9 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
               <div className="flex-1 overflow-y-auto px-5">
                 {lines.length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center gap-3 py-10 text-center text-muted-foreground">
-                    <span className="flex size-16 items-center justify-center rounded-2xl border-2 border-dashed border-input">
-                      <ShoppingBag className="size-8" strokeWidth={1.5} />
-                    </span>
+                    <EmptyIcon icon={ShoppingBag} size="sm" />
                     <div>
-                      <p className="font-semibold text-foreground">No items yet</p>
+                      <p className="text-base font-bold text-foreground">No items yet</p>
                       <p className="mt-0.5 text-sm">Tap a product to add it to the sale.</p>
                     </div>
                   </div>

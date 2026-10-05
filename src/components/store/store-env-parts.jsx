@@ -32,9 +32,9 @@ export async function StoreLogoSlot({ storeId }) {
 
   return store.logoUrl ? (
     <FadeImage
-      src={imageThumb(store.logoUrl, { w: 132, h: 132 })}
+      src={imageThumb(store.logoUrl, { w: 132, h: 132, fit: "limit" })}
       alt=""
-      className="size-11 shrink-0 rounded-xl border border-border bg-card object-cover"
+      className="size-11 shrink-0 rounded-xl border border-border bg-white object-contain p-1"
     />
   ) : (
     <span

@@ -70,7 +70,7 @@ export function DashboardShell({ user, singleStoreId = null, children }) {
               </KTooltip>
             ) : (
               <>
-                <Wordmark size="md" />
+                <Wordmark size="sm" />
                 <KTooltip label="Collapse sidebar" side="bottom" align="end">
                   <Button variant="ghost" size="icon-sm" aria-label="Collapse sidebar" onClick={toggleCollapsed}>
                     <PanelLeftClose />
@@ -92,7 +92,7 @@ export function DashboardShell({ user, singleStoreId = null, children }) {
             <SheetTitle>Menu</SheetTitle>
             <SheetDescription>Main navigation</SheetDescription>
             <div className="flex h-14 items-center px-5">
-              <Wordmark size="md" />
+              <Wordmark size="sm" />
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-4">
               <SidebarNav onNavigate={() => setMenuOpen(false)} singleStoreId={singleStoreId} />

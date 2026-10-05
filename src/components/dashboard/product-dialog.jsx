@@ -4,10 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/auth/form-error";
+import { useConfirm } from "@/components/ui/koetap/confirm-dialog";
 import { FormField } from "@/components/ui/koetap/form-field";
 import { useToast } from "@/components/ui/koetap/toast";
 import { Input } from "@/components/ui/input";
-import { KImageUpload } from "@/components/ui/koetap/KImageUpload";
+import { KImageUpload, discardImage } from "@/components/ui/koetap/KImageUpload";
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CATEGORY_MAX } from "@/lib/categories-shared";
 import {
@@ -51,6 +52,8 @@ export function ProductDialog({ storeId, product, storeThreshold, categories, on
   });
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
+  const [deleting, setDeleting] = useState(false);
   // "Create new category" reveals a box here; the category is created together with the product
   const [creating, setCreating] = useState(false);
   const [newCategory, setNewCategory] = useState("");
@@ -63,6 +66,12 @@ export function ProductDialog({ storeId, product, storeThreshold, categories, on
     { ...form, newCategory },
     { idPrefix: "p-" }
   );
+
+  // Closing without saving: an image uploaded in this form but never saved is thrown away.
+  function cancel() {
+    if (form.imageUrl && form.imageUrl !== (product?.imageUrl ?? "")) discardImage(form.imageUrl);
+    onClose();
+  }
 
   const update = (field) => (e) => setForm({ ...form, [field]: e.target.value });
 
@@ -109,6 +118,29 @@ export function ProductDialog({ storeId, product, storeThreshold, categories, on
     router.refresh();
   }
 
+  async function remove() {
+    const ok = await confirm({
+      title: `Delete "${product.name}"?`,
+      description:
+        "It's removed from your products and the POS for good and can't be restored. Past sales that included it stay in your reports. To just stop selling it for now, deactivate it instead.",
+      confirmLabel: "Delete product",
+      destructive: true,
+    });
+    if (!ok) return;
+
+    setDeleting(true);
+    const res = await fetch(`/api/stores/${storeId}/products/${product.id}?permanent=true`, { method: "DELETE" });
+    setDeleting(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setServerError("form", data.error || "Could not delete the product");
+      return;
+    }
+    toast.success(`${product.name} deleted`);
+    onClose();
+    router.refresh();
+  }
+
   const numberProps = (field, step) => ({
     type: "number",
     inputMode: "decimal",
@@ -120,7 +152,7 @@ export function ProductDialog({ storeId, product, storeThreshold, categories, on
   });
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog open onOpenChange={(open) => !open && cancel()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{editing ? "Edit product" : "Add product"}</DialogTitle>
@@ -231,15 +263,27 @@ export function ProductDialog({ storeId, product, storeThreshold, categories, on
           {errors.form && <FormError>{errors.form}</FormError>}
 
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={onClose}>
+            {editing && (
+              <Button
+                type="button"
+                variant="ghost"
+                loading={deleting}
+                onClick={remove}
+                className="text-error-ink hover:bg-error-soft sm:mr-auto"
+              >
+                Delete product
+              </Button>
+            )}
+            <Button type="button" variant="secondary" onClick={cancel}>
               Cancel
             </Button>
-            <Button type="submit" loading={loading} disabled={uploading}>
+            <Button type="submit" loading={loading} disabled={uploading || deleting}>
               {loading ? "Saving..." : editing ? "Save changes" : "Add product"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
+      {confirmDialog}
     </Dialog>
   );
 }

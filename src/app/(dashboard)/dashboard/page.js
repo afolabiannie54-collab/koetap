@@ -7,7 +7,7 @@ import { businessFilter } from "@/lib/api-auth";
 import { formatMoney, serializeStore } from "@/lib/stores";
 import { getStoreCounts } from "@/lib/store-stats";
 import { getOverview } from "@/lib/overview";
-import { AddStoreDialog } from "@/components/dashboard/add-store-dialog";
+import { StoreSetupWizard } from "@/components/dashboard/store-setup-wizard";
 import { Greeting } from "@/components/dashboard/greeting";
 import { LowStockPanel } from "@/components/dashboard/low-stock-panel";
 import { RecentSales } from "@/components/dashboard/recent-sales";
@@ -38,7 +38,7 @@ export default async function DashboardPage() {
           title="Create your first store"
           description="A store is your own POS: its products, its cashiers, its sales. Set one up and start selling."
         >
-          <AddStoreDialog label="Create your first store" size="lg" />
+          <StoreSetupWizard label="Create your first store" size="lg" autoOpen />
         </EmptyState>
       </div>
     );
@@ -58,9 +58,7 @@ export default async function DashboardPage() {
     <div className="animate-contentIn space-y-6">
       {/* Add Store sits in the top bar, top right */}
       <TopBarActions>
-        <KTooltip label="Create another store with its own products, staff and sales" side="bottom" align="end">
-          <AddStoreDialog variant="outline" />
-        </KTooltip>
+        <StoreSetupWizard variant="outline" tip="Set up another store with its own products, staff and sales" />
       </TopBarActions>
 
       <div className="flex flex-wrap items-end justify-between gap-4">

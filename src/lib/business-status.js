@@ -6,22 +6,26 @@ import Business from "@/models/Business";
 // page and the API. A short cache keeps that to about one lookup per business every few seconds,
 // and a suspension still reaches everyone within that window.
 const TTL_MS = 5000;
-const cache = new Map(); // businessId -> { suspended, at }
+const cache = new Map(); // businessId -> { state, at }   state: "active" | "suspended" | "gone"
 
-// Business.isActive is missing on older documents, and those count as active.
-// Pass fresh: true (e.g. at sign-in) to skip the cache.
-export async function isBusinessSuspended(businessId, { fresh = false } = {}) {
-  if (!businessId || !mongoose.isValidObjectId(businessId)) return false;
+// "active", "suspended", or "gone" (the business was deleted). Business.isActive is missing on older documents,
+// and those count as active. Pass fresh: true (e.g. at sign-in) to skip the cache.
+export async function getBusinessState(businessId, { fresh = false } = {}) {
+  if (!businessId || !mongoose.isValidObjectId(businessId)) return "active";
 
   const key = String(businessId);
   const hit = cache.get(key);
-  if (!fresh && hit && Date.now() - hit.at < TTL_MS) return hit.suspended;
+  if (!fresh && hit && Date.now() - hit.at < TTL_MS) return hit.state;
 
   await connectDB();
   const business = await Business.findById(key).select("isActive").lean();
-  const suspended = Boolean(business) && business.isActive === false;
-  cache.set(key, { suspended, at: Date.now() });
-  return suspended;
+  const state = !business ? "gone" : business.isActive === false ? "suspended" : "active";
+  cache.set(key, { state, at: Date.now() });
+  return state;
+}
+
+export async function isBusinessSuspended(businessId, options) {
+  return (await getBusinessState(businessId, options)) === "suspended";
 }
 
 // Called after the admin changes a business, so this server instance sees it immediately.

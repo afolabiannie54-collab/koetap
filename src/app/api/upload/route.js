@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireOwner } from "@/lib/api-auth";
-import cloudinary, { isCloudinaryConfigured } from "@/lib/cloudinary";
+import connectDB from "@/lib/db";
+import cloudinary, { destroyImages, isCloudinaryConfigured, publicIdFromUrl } from "@/lib/cloudinary";
+import Product from "@/models/Product";
+import Store from "@/models/Store";
 import { IMAGE_TYPES, MAX_IMAGE_BYTES, sniffImageType } from "@/lib/images";
 
 export const runtime = "nodejs";
@@ -59,4 +62,28 @@ export async function POST(request) {
     console.error("Cloudinary upload failed:", err?.message ?? err);
     return fail("The image couldn't be uploaded right now. Please try again.", 502);
   }
+}
+
+// Throws away an image that was uploaded but never kept (removed, replaced, or its form was closed without saving).
+// It only ever deletes an image from the caller's own folder that no store or product uses, so a saved image can't be
+// removed this way. Anything else is quietly ignored; the daily cleanup is the safety net.
+export async function DELETE(request) {
+  const { user, error } = await requireOwner();
+  if (error) return error;
+
+  const body = await request.json().catch(() => ({}));
+  const publicId = publicIdFromUrl(body.url);
+  if (!publicId || !publicId.startsWith(`koetap/${user.businessId ?? "platform"}/`)) {
+    return NextResponse.json({ deleted: false });
+  }
+
+  await connectDB();
+  const [store, product] = await Promise.all([
+    Store.exists({ logoUrl: body.url }),
+    Product.exists({ imageUrl: body.url }),
+  ]);
+  if (store || product) return NextResponse.json({ deleted: false });
+
+  await destroyImages([body.url]);
+  return NextResponse.json({ deleted: true });
 }

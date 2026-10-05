@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Ban, Pencil, Plus, RotateCcw, Users } from "lucide-react";
+import { Ban, Pencil, Plus, RotateCcw, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FormError } from "@/components/auth/form-error";
@@ -63,6 +63,30 @@ export function StaffTable({ storeId, staff }) {
       return;
     }
     toast.success(`${member.name} ${member.isActive ? "deactivated" : "reactivated"}`);
+    router.refresh();
+  }
+
+  // Only offered once a cashier has been deactivated: that is the deliberate first step.
+  async function deleteForever(member) {
+    const ok = await confirm({
+      title: `Delete ${member.name} permanently?`,
+      description: "Their sign-in is removed for good and can't be restored. Sales they made stay in your reports under their name.",
+      confirmLabel: "Delete permanently",
+      destructive: true,
+    });
+    if (!ok) return;
+
+    setActionError("");
+    setBusyId(member.id);
+    const res = await fetch(`/api/stores/${storeId}/staff/${member.id}?permanent=true`, { method: "DELETE" });
+    setBusyId(null);
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setActionError(data.error || "Could not delete the cashier");
+      return;
+    }
+    toast.success(`${member.name} deleted`);
     router.refresh();
   }
 
@@ -128,6 +152,15 @@ export function StaffTable({ storeId, staff }) {
                           disabled={busyId === m.id}
                           onClick={() => toggleActive(m)}
                         />
+                        {!m.isActive && (
+                          <RowAction
+                            label="Delete permanently: this can't be undone"
+                            icon={Trash2}
+                            tone="danger"
+                            disabled={busyId === m.id}
+                            onClick={() => deleteForever(m)}
+                          />
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

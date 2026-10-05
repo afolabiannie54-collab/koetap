@@ -83,12 +83,24 @@ export async function PATCH(request, { params }) {
   return NextResponse.json({ user: serializeStaff(user) });
 }
 
-// Soft delete: the account and its sales history stay, it just can't sign in any more.
-export async function DELETE(_request, { params }) {
+// Without ?permanent=true: the account and its sales history stay, it just can't sign in any more.
+// With ?permanent=true: the account is removed for good, but only once it has been deactivated first. Past sales keep
+// the cashier's name (they store it as text), so reports stay complete.
+export async function DELETE(request, { params }) {
   const { storeId, userId } = await params;
   const { store, error } = await authorizeStore(storeId, { write: true });
   if (error) return error;
   if (!mongoose.isValidObjectId(userId)) return notFound();
+
+  if (new URL(request.url).searchParams.get("permanent") === "true") {
+    const target = await User.findOne(staffQuery(store, userId)).select("isActive").lean();
+    if (!target) return notFound();
+    if (target.isActive !== false) {
+      return NextResponse.json({ error: "Deactivate this cashier first. A cashier can only be deleted permanently after that." }, { status: 409 });
+    }
+    await User.deleteOne({ _id: target._id });
+    return NextResponse.json({ message: "Cashier deleted" });
+  }
 
   const user = await User.findOneAndUpdate(
     staffQuery(store, userId),

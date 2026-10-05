@@ -168,7 +168,7 @@ export function BusinessesTable() {
               ) : current.businesses.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} className="p-4">
-                    <EmptyState icon={Building} title="No businesses match" description="Try a different search or filter." className="border-0 py-8" />
+                    <EmptyState icon={Building} title="No businesses match" description="Try a different search or filter." size="sm" className="border-0" />
                   </TableCell>
                 </TableRow>
               ) : (

@@ -6,7 +6,7 @@ import Store from "@/models/Store";
 import { businessFilter } from "@/lib/api-auth";
 import { serializeStore } from "@/lib/stores";
 import { getStoreCounts } from "@/lib/store-stats";
-import { AddStoreDialog } from "@/components/dashboard/add-store-dialog";
+import { StoreSetupWizard } from "@/components/dashboard/store-setup-wizard";
 import { StoreList } from "@/components/dashboard/store-list";
 import { TopBarActions } from "@/components/dashboard/topbar";
 import { EmptyState } from "@/components/ui/koetap/empty-state";
@@ -30,7 +30,7 @@ export default async function StoresPage() {
     <div className="animate-contentIn space-y-8">
       {/* "Add Store" sits in the top bar, top right */}
       <TopBarActions>
-        <AddStoreDialog />
+        <StoreSetupWizard tip="Set up a new store with its own products, staff and sales" />
       </TopBarActions>
 
       <PageHeader title="Your Stores" description="Each store is its own POS, with its own products, staff and sales." />
@@ -41,7 +41,7 @@ export default async function StoresPage() {
           title="No stores yet"
           description="Create your first store to start adding products and making sales."
         >
-          <AddStoreDialog label="Add your first store" size="lg" />
+          <StoreSetupWizard label="Add your first store" size="lg" />
         </EmptyState>
       ) : (
         <StoreList stores={stores} counts={counts} />

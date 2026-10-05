@@ -1,4 +1,4 @@
-import { AddStoreDialog } from "@/components/dashboard/add-store-dialog";
+import { StoreSetupWizard } from "@/components/dashboard/store-setup-wizard";
 import { Greeting } from "@/components/dashboard/greeting";
 import { TopBarActions } from "@/components/dashboard/topbar";
 import { RowsSkeleton, StatsSkeleton, StoreListSkeleton } from "@/components/ui/koetap/page-skeletons";
@@ -10,7 +10,7 @@ export default function Loading() {
   return (
     <div className="space-y-6">
       <TopBarActions>
-        <AddStoreDialog variant="outline" />
+        <StoreSetupWizard variant="outline" />
       </TopBarActions>
 
       <Greeting />

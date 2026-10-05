@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Product from "@/models/Product";
 import InventoryLog from "@/models/InventoryLog";
 import { authorizeStore } from "@/lib/api-auth";
+import { destroyImages } from "@/lib/cloudinary";
 import { ensureCategory } from "@/lib/categories";
 import { parseProductInput, serializeProduct } from "@/lib/products";
 
@@ -56,6 +57,9 @@ export async function PATCH(request, { params }) {
   );
   if (!product) return notFound();
 
+  // A replaced or removed image is no longer used by anything, so it goes from Cloudinary too.
+  if (data.imageUrl !== undefined && product.imageUrl && product.imageUrl !== data.imageUrl) await destroyImages([product.imageUrl]);
+
   const previousStock = product.stock ?? 0;
   product.set(data);
 
@@ -77,11 +81,20 @@ export async function PATCH(request, { params }) {
 }
 
 // Soft delete: the product and its history stay, it just stops being sold.
-export async function DELETE(_request, { params }) {
+// Without ?permanent=true: deactivates (hidden from the POS, kept). With ?permanent=true: deleted for good. Past sales
+// that included it stay as they are, because each sale keeps its own copy of the product's name and price.
+export async function DELETE(request, { params }) {
   const { storeId, productId } = await params;
   const { store, error } = await authorizeStore(storeId, { write: true });
   if (error) return error;
   if (!mongoose.isValidObjectId(productId)) return notFound();
+
+  if (new URL(request.url).searchParams.get("permanent") === "true") {
+    const gone = await Product.findOneAndDelete(productQuery(store, productId)).lean();
+    if (!gone) return notFound();
+    await destroyImages([gone.imageUrl]);
+    return NextResponse.json({ message: "Product deleted" });
+  }
 
   const product = await Product.findOneAndUpdate(
     productQuery(store, productId),
