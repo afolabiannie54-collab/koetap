@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { ChartColumn, Store as StoreIcon } from "lucide-react";
+import { Store as StoreIcon } from "lucide-react";
 import { auth } from "@/lib/auth";
 import connectDB from "@/lib/db";
 import Store from "@/models/Store";
@@ -7,8 +7,7 @@ import { businessFilter } from "@/lib/api-auth";
 import { serializeStore } from "@/lib/stores";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { KBadge } from "@/components/ui/koetap/KBadge";
-import { KCard } from "@/components/ui/koetap/KCard";
+import { StoreList } from "@/components/dashboard/store-list";
 import { EmptyState } from "@/components/ui/koetap/empty-state";
 import { PageHeader } from "@/components/ui/koetap/page-header";
 
@@ -43,25 +42,7 @@ export default async function ReportsIndexPage() {
           </Button>
         </EmptyState>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {ordered.map((store) => (
-            <KCard key={store.id} hover className="gap-4">
-              <div className="flex items-start justify-between gap-3 px-(--card-spacing)">
-                <h3 className="min-w-0 text-lg font-semibold tracking-tight [overflow-wrap:anywhere]">{store.name}</h3>
-                <KBadge variant={store.isActive ? "active" : "inactive"}>{store.isActive ? "Active" : "Inactive"}</KBadge>
-              </div>
-              <p className="px-(--card-spacing) text-sm text-muted-foreground">{store.address || "No address yet"}</p>
-              <div className="mt-auto px-(--card-spacing)">
-                <Button asChild className="w-full">
-                  <Link href={`/stores/${store.id}/reports`}>
-                    <ChartColumn />
-                    View reports
-                  </Link>
-                </Button>
-              </div>
-            </KCard>
-          ))}
-        </div>
+        <StoreList stores={ordered} hrefFor={(store) => `/stores/${store.id}/reports`} hint="View reports" />
       )}
     </div>
   );

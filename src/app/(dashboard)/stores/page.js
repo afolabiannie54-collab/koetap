@@ -6,7 +6,7 @@ import { businessFilter } from "@/lib/api-auth";
 import { serializeStore } from "@/lib/stores";
 import { getStoreCounts } from "@/lib/store-stats";
 import { AddStoreDialog } from "@/components/dashboard/add-store-dialog";
-import { StoreCard } from "@/components/dashboard/store-card";
+import { StoreList } from "@/components/dashboard/store-list";
 import { TopBarActions } from "@/components/dashboard/topbar";
 import { EmptyState } from "@/components/ui/koetap/empty-state";
 import { PageHeader } from "@/components/ui/koetap/page-header";
@@ -39,11 +39,7 @@ export default async function StoresPage() {
           <AddStoreDialog label="Add your first store" size="lg" />
         </EmptyState>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {stores.map((store) => (
-            <StoreCard key={store.id} store={store} counts={counts[store.id]} />
-          ))}
-        </div>
+        <StoreList stores={stores} counts={counts} />
       )}
     </div>
   );

@@ -15,13 +15,13 @@ import { KTooltip } from "@/components/ui/koetap/tooltip";
 import { StaffDialog } from "@/components/dashboard/staff-dialog";
 import { cn } from "@/lib/utils";
 
-// Icon-only with a tooltip on larger screens; icon + words on phones.
+// Icon-only with a tooltip (the label stays for screen readers), so rows fit on a phone without scrolling.
 function RowAction({ label, icon: Icon, onClick, variant = "ghost", disabled }) {
   return (
-    <KTooltip label={label}>
-      <Button size="sm" variant={variant} onClick={onClick} disabled={disabled} aria-label={label} className="md:size-9 md:px-0">
+    <KTooltip label={label} align="end">
+      <Button size="sm" variant={variant} onClick={onClick} disabled={disabled} aria-label={label} className="size-8 px-0 sm:size-9">
         <Icon />
-        <span className="md:sr-only">{label}</span>
+        <span className="sr-only">{label}</span>
       </Button>
     </KTooltip>
   );
@@ -103,9 +103,9 @@ export function StaffTable({ storeId, staff }) {
               <TableBody>
                 {staff.map((m) => (
                   <TableRow key={m.id} className={cn(!m.isActive && "opacity-60")}>
-                    <TableCell>
+                    <TableCell className="whitespace-normal">
                       <div className="flex items-center gap-3">
-                        <Avatar name={m.name} email={m.email} />
+                        <Avatar name={m.name} email={m.email} className="max-sm:hidden" />
                         <div className="min-w-0">
                           <p className="font-medium [overflow-wrap:anywhere]">{m.name}</p>
                           <p className="text-xs text-muted-foreground [overflow-wrap:anywhere] md:hidden">{m.email}</p>

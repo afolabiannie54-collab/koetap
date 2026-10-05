@@ -304,7 +304,7 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
   const clock = now ? now.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "--:--:--";
 
   return (
-    <div style={rootStyle} className="relative flex h-dvh flex-col overflow-hidden bg-muted text-foreground">
+    <div style={rootStyle} className="relative flex h-dvh flex-col overflow-hidden bg-canvas text-foreground">
       {/* Header bar */}
       <header className="z-20 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background px-4">
         <div className="flex min-w-0 shrink-0 items-center">
@@ -329,13 +329,13 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
           <p className="text-xs text-muted-foreground tabular-nums sm:hidden">{clock.slice(0, 5)}</p>
           <ThemeToggle />
           {role === "cashier" ? (
-            <KTooltip label="Sign out">
+            <KTooltip label="Sign out" align="end">
               <Button type="button" variant="ghost" size="icon-sm" aria-label="Sign out" onClick={signOutCashier}>
                 <LogOut />
               </Button>
             </KTooltip>
           ) : (
-            <KTooltip label="Back to dashboard">
+            <KTooltip label="Back to dashboard" align="end">
               <Button asChild variant="ghost" size="icon-sm">
                 <Link href={`/stores/${store.id}`} aria-label="Back to dashboard">
                   <ArrowLeft />

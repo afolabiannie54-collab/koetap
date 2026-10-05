@@ -24,17 +24,17 @@ const ALL = "all";
 // Icon-only with a tooltip on larger screens; icon + words on phones, where there's no hover.
 function RowAction({ label, icon: Icon, onClick, variant = "ghost", disabled }) {
   return (
-    <KTooltip label={label}>
+    <KTooltip label={label} align="end">
       <Button
         size="sm"
         variant={variant}
         onClick={onClick}
         disabled={disabled}
         aria-label={label}
-        className="md:size-9 md:px-0"
+        className="size-8 px-0 sm:size-9"
       >
         <Icon />
-        <span className="md:sr-only">{label}</span>
+        <span className="sr-only">{label}</span>
       </Button>
     </KTooltip>
   );
@@ -194,7 +194,7 @@ export function ProductsTable({ storeId, currency, storeThreshold, products, ini
                   filtered.map((p) => (
                     <TableRow key={p.id} className={cn(!p.isActive && "opacity-60")}>
                       {/* Low stock rows get an amber edge on the left */}
-                      <TableCell className={cn(p.isLowStock && "shadow-[inset_4px_0_0_var(--warning)]")}>
+                      <TableCell className={cn("whitespace-normal", p.isLowStock && "shadow-[inset_4px_0_0_var(--warning)]")}>
                         <div className="font-medium">{p.name}</div>
                         <div className="text-xs text-muted-foreground">
                           <span className="md:hidden">{p.category}</span>
@@ -209,7 +209,7 @@ export function ProductsTable({ storeId, currency, storeThreshold, products, ini
                       <TableCell className="text-right">
                         <span className={cn(p.isLowStock && "font-semibold text-warning-ink")}>{p.stock}</span>
                         {p.isLowStock && (
-                          <Badge variant="warning" className="ml-2">
+                          <Badge variant="warning" className="ml-2 hidden sm:inline-flex">
                             {p.stock === 0 ? "Out of stock" : "Low stock"}
                           </Badge>
                         )}

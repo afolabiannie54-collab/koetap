@@ -1,4 +1,4 @@
-import { Package, Receipt, Store as StoreIcon } from "lucide-react";
+import { Store as StoreIcon } from "lucide-react";
 import { auth } from "@/lib/auth";
 import connectDB from "@/lib/db";
 import Store from "@/models/Store";
@@ -9,9 +9,9 @@ import { serializeStore } from "@/lib/stores";
 import { getStoreCounts } from "@/lib/store-stats";
 import { AddStoreDialog } from "@/components/dashboard/add-store-dialog";
 import { Greeting } from "@/components/dashboard/greeting";
-import { StoreCard } from "@/components/dashboard/store-card";
+import { StoreList } from "@/components/dashboard/store-list";
 import { EmptyState } from "@/components/ui/koetap/empty-state";
-import { StatCard } from "@/components/ui/koetap/stat-card";
+import { StatGroup } from "@/components/ui/koetap/stat-group";
 
 export const metadata = { title: "Dashboard | Koetap" };
 
@@ -33,11 +33,14 @@ export default async function DashboardPage() {
     <div className="space-y-10">
       <Greeting name={user.name?.split(" ")[0] || "there"} />
 
-      <section aria-label="Overview" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard icon={StoreIcon} label="Total Stores" value={activeStores} />
-        <StatCard icon={Package} label="Total Products" value={products} />
-        <StatCard icon={Receipt} label="Total Sales" value={sales} />
-      </section>
+      <StatGroup
+        aria-label="Overview"
+        items={[
+          { label: "Total Stores", value: activeStores },
+          { label: "Total Products", value: products },
+          { label: "Total Sales", value: sales },
+        ]}
+      />
 
       <section aria-labelledby="your-stores" className="space-y-4">
         <h2 id="your-stores" className="text-xl font-semibold tracking-tight">
@@ -53,11 +56,7 @@ export default async function DashboardPage() {
             <AddStoreDialog label="Create your first store" size="lg" />
           </EmptyState>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {stores.map((store) => (
-              <StoreCard key={store.id} store={store} counts={counts[store.id]} />
-            ))}
-          </div>
+          <StoreList stores={stores} counts={counts} />
         )}
       </section>
     </div>

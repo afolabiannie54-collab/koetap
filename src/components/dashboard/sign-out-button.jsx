@@ -8,7 +8,7 @@ import { clearAllHeldOrders } from "@/lib/held-orders";
 
 export function SignOutButton({ className }) {
   return (
-    <KTooltip label="Sign out">
+    <KTooltip label="Sign out" align="end">
       <Button
         variant="ghost"
         size="icon-sm"

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Banknote, Calculator, Package, Receipt } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormError } from "@/components/auth/form-error";
-import { StatCard as BaseStatCard } from "@/components/ui/koetap/stat-card";
+import { StatGroup } from "@/components/ui/koetap/stat-group";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,34 +24,21 @@ const PRESET_BUTTONS = [
   ["custom", "Custom"],
 ];
 
-function StatCard({ icon, label, value, current, previous, loading }) {
-  if (loading) {
-    return (
-      <Card className="gap-4">
-        <div className="flex items-center justify-between px-(--card-spacing)">
-          <Skeleton className="h-4 w-28" />
-          <Skeleton className="size-9" />
-        </div>
-        <div className="space-y-2 px-(--card-spacing)">
-          <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-3 w-28" />
-        </div>
-      </Card>
-    );
-  }
+// One summary number plus how it compares with the previous period, as an item for StatGroup.
+function statItem({ label, value, current, previous, loading }) {
+  if (loading) return { label, loading: true };
 
   const delta = percentChange(current, previous);
   let note;
-  let tone;
+  let noteTone;
   if (delta === null) {
     note = current > 0 ? "No sales in the previous period" : "No sales in either period";
   } else {
     note = `${delta > 0 ? "+" : ""}${delta}% vs last period`;
-    if (delta > 0) tone = "text-success-ink";
-    else if (delta < 0) tone = "text-error-ink";
+    if (delta > 0) noteTone = "text-success-ink";
+    else if (delta < 0) noteTone = "text-error-ink";
   }
-
-  return <BaseStatCard icon={icon} label={label} value={value} note={note} noteTone={tone} />;
+  return { label, value, note, noteTone };
 }
 
 function EmptyRow({ colSpan }) {
@@ -199,40 +186,15 @@ export function ReportsView({ storeId, currency, today }) {
       {range && !failed && (
         <>
           {/* Summary */}
-          <section aria-label="Summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              icon={Banknote}
-              label="Total Revenue"
-              loading={loading}
-              value={s && money(s.revenue)}
-              current={s?.revenue}
-              previous={s?.previousRevenue}
-            />
-            <StatCard
-              icon={Receipt}
-              label="Total Transactions"
-              loading={loading}
-              value={s?.transactions}
-              current={s?.transactions}
-              previous={s?.previousTransactions}
-            />
-            <StatCard
-              icon={Calculator}
-              label="Average Order Value"
-              loading={loading}
-              value={s && money(s.avgOrderValue)}
-              current={s?.avgOrderValue}
-              previous={s?.previousAvgOrderValue}
-            />
-            <StatCard
-              icon={Package}
-              label="Items Sold"
-              loading={loading}
-              value={s?.itemsSold}
-              current={s?.itemsSold}
-              previous={s?.previousItemsSold}
-            />
-          </section>
+          <StatGroup
+            aria-label="Summary"
+            items={[
+              statItem({ label: "Total Revenue", loading, value: s && money(s.revenue), current: s?.revenue, previous: s?.previousRevenue }),
+              statItem({ label: "Total Transactions", loading, value: s?.transactions, current: s?.transactions, previous: s?.previousTransactions }),
+              statItem({ label: "Average Order Value", loading, value: s && money(s.avgOrderValue), current: s?.avgOrderValue, previous: s?.previousAvgOrderValue }),
+              statItem({ label: "Items Sold", loading, value: s?.itemsSold, current: s?.itemsSold, previous: s?.previousItemsSold }),
+            ]}
+          />
 
           {/* Revenue chart */}
           <Card>

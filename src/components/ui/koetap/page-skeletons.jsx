@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatGroup } from "@/components/ui/koetap/stat-group";
 
 // Loading placeholders shaped like the pages they stand in for, so the layout doesn't jump when data arrives.
 
@@ -13,41 +14,21 @@ export function PageHeaderSkeleton() {
 }
 
 export function StatsSkeleton({ count = 3 }) {
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {Array.from({ length: count }, (_, i) => (
-        <Card key={i} className="gap-4">
-          <div className="flex items-center justify-between px-(--card-spacing)">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="size-9" />
-          </div>
-          <div className="space-y-2 px-(--card-spacing)">
-            <Skeleton className="h-8 w-28" />
-            <Skeleton className="h-3 w-20" />
-          </div>
-        </Card>
-      ))}
-    </div>
-  );
+  return <StatGroup items={Array.from({ length: count }, (_, i) => ({ label: String(i), loading: true }))} />;
 }
 
+// A few rows like the store list
 export function CardGridSkeleton({ count = 3 }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {Array.from({ length: count }, (_, i) => (
-        <Card key={i} className="gap-4">
-          <div className="space-y-2 px-(--card-spacing)">
+    <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+      {Array.from({ length: Math.min(count, 4) }, (_, i) => (
+        <div key={i} className="flex items-center gap-4 px-5 py-4">
+          <Skeleton className="size-11 rounded-xl" />
+          <div className="flex-1 space-y-2">
             <Skeleton className="h-5 w-40" />
-            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-56 max-w-full" />
           </div>
-          <div className="flex gap-2 px-(--card-spacing)">
-            <Skeleton className="h-6 w-24 rounded-full" />
-            <Skeleton className="h-6 w-24 rounded-full" />
-          </div>
-          <div className="px-(--card-spacing)">
-            <Skeleton className="h-10 w-full" />
-          </div>
-        </Card>
+        </div>
       ))}
     </div>
   );
