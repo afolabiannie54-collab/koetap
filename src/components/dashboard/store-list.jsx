@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { ArrowUpRight, MapPin } from "lucide-react";
+import { FadeImage } from "@/components/ui/koetap/fade-image";
 import { KBadge } from "@/components/ui/koetap/KBadge";
+import { imageThumb } from "@/lib/images";
+import { readableTextColor } from "@/lib/pos";
 
 // The stores as one list on one surface: a row per store that opens it. Replaces a card per store, which
 // felt empty with one store. `hrefFor` / `hint` let the reports page reuse it to open a store's reports.
@@ -15,12 +18,7 @@ export function StoreList({ stores, counts, hrefFor = (s) => `/stores/${s.id}`, 
               href={hrefFor(store)}
               className="group/row flex items-center gap-4 px-5 py-4 transition-colors duration-150 hover:bg-accent focus-visible:relative focus-visible:z-10"
             >
-              <span
-                aria-hidden="true"
-                className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-base font-bold text-primary-foreground"
-              >
-                {store.name.trim().charAt(0).toUpperCase() || "S"}
-              </span>
+              <StoreTile store={store} />
 
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
@@ -55,5 +53,29 @@ export function StoreList({ stores, counts, hrefFor = (s) => `/stores/${s.id}`, 
         );
       })}
     </ul>
+  );
+}
+
+// The store's own mark: its logo if it has one (whole, uncropped), otherwise its initial on its accent colour.
+// A store with no accent colour stays black and white.
+function StoreTile({ store }) {
+  if (store.logoUrl) {
+    return (
+      <FadeImage
+        src={imageThumb(store.logoUrl, { w: 132, h: 132, fit: "limit" })}
+        alt=""
+        className="size-11 shrink-0 rounded-xl border border-border bg-white object-contain p-1"
+      />
+    );
+  }
+  const accent = /^#[0-9a-fA-F]{6}$/.test(store.accentColor) ? store.accentColor : null;
+  return (
+    <span
+      aria-hidden="true"
+      style={accent ? { background: accent, color: readableTextColor(accent) } : undefined}
+      className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-foreground text-base font-bold text-background"
+    >
+      {store.name.trim().charAt(0).toUpperCase() || "S"}
+    </span>
   );
 }
