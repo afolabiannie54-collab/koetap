@@ -82,7 +82,7 @@ export function MarketingNav({ home }) {
               <Menu className="size-5" strokeWidth={2.5} />
             </button>
           </SheetTrigger>
-          <SheetContent>
+          <SheetContent className="force-light">
             <SheetTitle>Menu</SheetTitle>
             <SheetDescription>Navigate the Koetap website</SheetDescription>
             <div className="flex h-full flex-col px-5 pt-5 pb-8">

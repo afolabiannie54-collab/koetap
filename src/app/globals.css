@@ -2,7 +2,8 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+/* .force-light: a subtree that always stays light (the public website), whatever the visitor's theme is */
+@custom-variant dark (&:is(.dark *):not(.force-light, .force-light *));
 
 /* ------------------------------------------------------------------
    Koetap design tokens.
@@ -134,7 +135,8 @@
   --font-heading: var(--font-sans);
 }
 
-:root {
+:root,
+.force-light {
   --background: #ffffff;
   /* The page behind the white surfaces. Light mode: soft grey, so cards stand out. */
   --foreground: #0a0a0a;
@@ -239,7 +241,8 @@
    Inside a store, the store's accent colour replaces black for the same roles (see lib/theme.js).
    --brand is that role: the colour of primary buttons, the active nav item and table headers.
 ------------------------------------------------------------------- */
-:root {
+:root,
+.force-light {
   --brand: #0a0a0a;
   --brand-fg: #ffffff;
   --primary: #0a0a0a;
@@ -488,4 +491,10 @@
   .mk-grow-y, .mk-grow-x, .mk-pop, .mk-slide { transform: none; opacity: 1; }
   .mk-print { opacity: 1; transform: rotate(2deg); }
   .reveal[data-from] { transform: none; }
+}
+
+.force-light {
+  color-scheme: light;
+  background: var(--background);
+  color: var(--foreground);
 }

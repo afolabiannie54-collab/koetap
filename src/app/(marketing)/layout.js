@@ -11,7 +11,7 @@ export default async function MarketingLayout({ children }) {
   const home = session?.user ? HOME[session.user.role] ?? null : null;
 
   return (
-    <div className="animate-fadeIn">
+    <div className="force-light isolate min-h-screen animate-fadeIn">
       <MarketingNav home={home} />
       <main>{children}</main>
       <MarketingFooter />
