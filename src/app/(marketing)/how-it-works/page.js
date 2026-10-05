@@ -65,7 +65,7 @@ export default function HowItWorksPage() {
         {STEPS.map((s, i) => {
           const flip = i % 2 === 1;
           return (
-            <Reveal key={s.n} className="grid items-center gap-10 border-t-2 border-foreground py-16 sm:py-24 lg:grid-cols-2 lg:gap-20">
+            <Reveal key={s.n} from={flip ? "right" : "left"} className="grid items-center gap-10 border-t-2 border-foreground py-16 sm:py-24 lg:grid-cols-2 lg:gap-20">
               <div className={cn(flip && "lg:order-2")}>
                 <span className="mk-outline block text-[9rem] leading-[0.8] font-extrabold tracking-tighter sm:text-[13rem]">{s.n}</span>
                 <h2 className="mt-6 text-4xl leading-[1] font-extrabold tracking-[-0.035em] sm:text-6xl">{s.title}</h2>

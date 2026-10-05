@@ -59,9 +59,7 @@ export default function FaqPage() {
       </section>
 
       <section className="mx-auto max-w-7xl px-5 pb-24 sm:px-8 sm:pb-32">
-        <Reveal>
-          <FaqAccordion items={FAQ} />
-        </Reveal>
+        <FaqAccordion items={FAQ} />
       </section>
 
       <section className="mk-grid bg-foreground text-background">

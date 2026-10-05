@@ -210,7 +210,7 @@ export function StoresVisual() {
   return (
     <div aria-hidden="true" className="space-y-2.5">
       {[["Victoria Island", "12 products"], ["Ikeja", "48 products"], ["Lekki", "31 products"]].map(([n, c], i) => (
-        <div key={n} className={cn("flex items-center gap-3 rounded-2xl border-2 px-4 py-3", i === 0 ? "border-background bg-background text-foreground" : "border-background/25 text-background")}>
+        <div key={n} style={{ "--i": i }} className={cn("mk-slide flex items-center gap-3 rounded-2xl border-2 px-4 py-3", i === 0 ? "border-background bg-background text-foreground" : "border-background/25 text-background")}>
           <span className={cn("flex size-10 items-center justify-center rounded-xl text-base font-bold", i === 0 ? "bg-foreground text-background" : "bg-background/15")}>{n[0]}</span>
           <span className="flex-1 text-base font-bold">{n}</span>
           <span className={cn("text-sm", i === 0 ? "text-muted-foreground" : "text-background/60")}>{c}</span>
@@ -223,14 +223,14 @@ export function StoresVisual() {
 export function StockVisual() {
   return (
     <div aria-hidden="true" className="space-y-3.5">
-      {[["Ankara dress", 82, false], ["Leather sandals", 46, false], ["Gele headwrap", 12, true]].map(([n, v, low]) => (
+      {[["Ankara dress", 82, false], ["Leather sandals", 46, false], ["Gele headwrap", 12, true]].map(([n, v, low], i) => (
         <div key={n}>
           <div className="mb-1.5 flex items-center justify-between text-sm font-bold">
             <span>{n}</span>
             {low ? <span className="rounded-full bg-foreground px-2.5 py-0.5 text-xs text-background">3 left</span> : <span className="text-muted-foreground">{v} in stock</span>}
           </div>
           <div className="h-3 overflow-hidden rounded-full border-2 border-foreground">
-            <div className="h-full bg-foreground" style={{ width: `${v}%` }} />
+            <div className="mk-grow-x h-full bg-foreground" style={{ width: `${v}%`, "--i": i }} />
           </div>
         </div>
       ))}
@@ -242,7 +242,7 @@ export function StaffVisual() {
   return (
     <div aria-hidden="true" className="flex -space-x-3">
       {["A", "T", "K", "O"].map((l, i) => (
-        <span key={l} className={cn("flex size-14 items-center justify-center rounded-full border-4 border-background text-xl font-bold", i % 2 ? "bg-background text-foreground ring-2 ring-foreground" : "bg-foreground text-background")}>
+        <span key={l} style={{ "--i": i }} className={cn("mk-pop flex size-14 items-center justify-center rounded-full border-4 border-background text-xl font-bold", i % 2 ? "bg-background text-foreground ring-2 ring-foreground" : "bg-foreground text-background")}>
           {l}
         </span>
       ))}
@@ -255,7 +255,7 @@ export function ReportsVisual() {
   return (
     <div aria-hidden="true" className="flex h-28 items-end gap-2.5">
       {bars.map((h, i) => (
-        <span key={i} style={{ height: `${h}%` }} className={cn("flex-1 rounded-t-lg", i === 5 ? "bg-foreground" : "bg-foreground/20")} />
+        <span key={i} style={{ height: `${h}%`, "--i": i }} className={cn("mk-grow-y flex-1 rounded-t-lg", i === 5 ? "bg-foreground" : "bg-foreground/20")} />
       ))}
     </div>
   );
@@ -263,7 +263,7 @@ export function ReportsVisual() {
 
 export function ReceiptVisual() {
   return (
-    <div aria-hidden="true" className="receipt-paper mx-auto w-44 rotate-2 rounded-lg border-2 border-foreground p-4 text-center text-[11px] shadow-[5px_5px_0_0_var(--foreground)]">
+    <div aria-hidden="true" className="receipt-paper mk-print mx-auto w-44 rounded-lg border-2 border-foreground p-4 text-center text-[11px] shadow-[5px_5px_0_0_var(--foreground)]">
       <p className="text-sm font-bold">Kemi&apos;s Fashion</p>
       <div className="my-2 border-t border-dashed" />
       <div className="flex justify-between"><span>Ankara dress</span><span className="font-bold">₦18,500</span></div>
@@ -278,8 +278,8 @@ export function ReceiptVisual() {
 export function BrandVisual() {
   return (
     <div aria-hidden="true" className="flex flex-wrap items-center gap-3">
-      {SWATCH.map((c) => (
-        <span key={c} style={{ background: c }} className="size-12 rounded-2xl shadow-md sm:size-16" />
+      {SWATCH.map((c, i) => (
+        <span key={c} style={{ background: c, "--i": i }} className="mk-pop size-12 rounded-2xl shadow-md sm:size-16" />
       ))}
     </div>
   );

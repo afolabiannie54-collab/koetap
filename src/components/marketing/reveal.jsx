@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 // Fades and lifts its content in the first time it scrolls into view. `delay` (ms) staggers siblings.
-export function Reveal({ as: Tag = "div", delay = 0, className, style, children, ...rest }) {
+export function Reveal({ as: Tag = "div", delay = 0, from, className, style, children, ...rest }) {
   const ref = useRef(null);
 
   useEffect(() => {
@@ -28,7 +28,7 @@ export function Reveal({ as: Tag = "div", delay = 0, className, style, children,
   }, []);
 
   return (
-    <Tag ref={ref} className={cn("reveal", className)} style={{ "--reveal-delay": `${delay}ms`, ...style }} {...rest}>
+    <Tag ref={ref} data-from={from} className={cn("reveal", className)} style={{ "--reveal-delay": `${delay}ms`, ...style }} {...rest}>
       {children}
     </Tag>
   );

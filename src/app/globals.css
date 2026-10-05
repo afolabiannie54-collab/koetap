@@ -410,3 +410,82 @@
 }
 .mk-acc[data-state="open"] { animation: mkAccordionDown 280ms cubic-bezier(0.2, 0.7, 0.2, 1); }
 .mk-acc[data-state="closed"] { animation: mkAccordionUp 220ms ease-in; }
+
+/* ---------- Marketing animations ---------- */
+
+/* Headline lines slide up out of a mask, one after another */
+@keyframes mkLineUp {
+  from { transform: translateY(105%); }
+  to { transform: translateY(0); }
+}
+.mk-line {
+  display: block;
+  animation: mkLineUp 900ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation-delay: var(--d, 0ms);
+}
+
+/* The highlighted word is stamped on, then settles */
+@keyframes mkStamp {
+  0% { opacity: 0; transform: scale(1.6) rotate(-9deg); }
+  60% { opacity: 1; transform: scale(0.94) rotate(-1deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-2deg); }
+}
+.mk-stamp { animation: mkStamp 700ms cubic-bezier(0.3, 0.9, 0.3, 1) 650ms backwards; transform: rotate(-2deg); }
+
+/* Copy and buttons rise in after the headline */
+@keyframes mkRise {
+  from { opacity: 0; transform: translateY(22px); }
+  to { opacity: 1; transform: none; }
+}
+.mk-rise { animation: mkRise 800ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards; animation-delay: var(--d, 0ms); }
+
+/* The warm glow drifts slowly */
+@keyframes mkDrift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(40px, -26px) scale(1.08); }
+  66% { transform: translate(-30px, 22px) scale(0.95); }
+}
+.mk-drift-a { animation: mkDrift 16s ease-in-out infinite; }
+.mk-drift-b { animation: mkDrift 20s ease-in-out -6s infinite; }
+.mk-drift-c { animation: mkDrift 18s ease-in-out -11s infinite; }
+
+/* Things inside a revealed section play once it scrolls in (.reveal gets .in) */
+.mk-grow-y { transform-origin: bottom; transform: scaleY(0); transition: transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1); transition-delay: calc(300ms + var(--i, 0) * 70ms); }
+.reveal.in .mk-grow-y { transform: scaleY(1); }
+.mk-grow-x { transform-origin: left; transform: scaleX(0); transition: transform 1100ms cubic-bezier(0.2, 0.8, 0.2, 1); transition-delay: calc(350ms + var(--i, 0) * 120ms); }
+.reveal.in .mk-grow-x { transform: scaleX(1); }
+.mk-pop { opacity: 0; transform: scale(0.4); transition: opacity 400ms ease-out, transform 600ms cubic-bezier(0.3, 1.5, 0.4, 1); transition-delay: calc(300ms + var(--i, 0) * 80ms); }
+.reveal.in .mk-pop { opacity: 1; transform: none; }
+.mk-slide { opacity: 0; transform: translateX(-28px); transition: opacity 600ms ease-out, transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1); transition-delay: calc(300ms + var(--i, 0) * 120ms); }
+.reveal.in .mk-slide { opacity: 1; transform: none; }
+.mk-print { opacity: 0; transform: translateY(-34px) rotate(-3deg); transition: opacity 500ms ease-out 300ms, transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1) 300ms; }
+.reveal.in .mk-print { opacity: 1; transform: rotate(2deg); }
+
+/* Sections can slide in from a side instead of rising */
+.reveal[data-from="left"] { transform: translateX(-56px); }
+.reveal[data-from="right"] { transform: translateX(56px); }
+.reveal[data-from].in { transform: none; }
+
+/* The grid on the dark band slowly moves */
+@keyframes mkGrid { to { background-position: 56px 56px; } }
+.mk-grid { animation: mkGrid 6s linear infinite; }
+
+/* Feature icons tilt, and tiles lift with a hard shadow, when hovered */
+.mk-icon { transition: transform 400ms cubic-bezier(0.3, 1.6, 0.4, 1); }
+.mk-tile:hover .mk-icon { transform: rotate(-12deg) scale(1.15); }
+/* keeps the scroll-in fade (.reveal) and adds the hover lift (Tailwind's translate) and shadow */
+.mk-tile {
+  transition: opacity 700ms cubic-bezier(0.2, 0.7, 0.2, 1), transform 700ms cubic-bezier(0.2, 0.7, 0.2, 1), translate 300ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 300ms ease;
+  transition-delay: var(--reveal-delay, 0ms), var(--reveal-delay, 0ms), 0ms, 0ms;
+}
+.mk-tile:hover { box-shadow: 8px 8px 0 0 var(--foreground); }
+
+/* The outlined step numbers fill in on hover */
+.mk-outline { transition: color 300ms ease; }
+.mk-outline:hover { color: var(--foreground); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-grow-y, .mk-grow-x, .mk-pop, .mk-slide { transform: none; opacity: 1; }
+  .mk-print { opacity: 1; transform: rotate(2deg); }
+  .reveal[data-from] { transform: none; }
+}
