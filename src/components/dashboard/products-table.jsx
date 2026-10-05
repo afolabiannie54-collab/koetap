@@ -13,7 +13,9 @@ import { KBadge } from "@/components/ui/koetap/KBadge";
 import { useConfirm } from "@/components/ui/koetap/confirm-dialog";
 import { EmptyState } from "@/components/ui/koetap/empty-state";
 import { useToast } from "@/components/ui/koetap/toast";
+import { FadeImage } from "@/components/ui/koetap/fade-image";
 import { KTooltip } from "@/components/ui/koetap/tooltip";
+import { imageThumb } from "@/lib/images";
 import { CategoryManager } from "@/components/dashboard/category-manager";
 import { ProductDialog } from "@/components/dashboard/product-dialog";
 import { StockDialog } from "@/components/dashboard/stock-dialog";
@@ -207,11 +209,29 @@ export function ProductsTable({ storeId, currency, storeThreshold, products, cat
                     <TableRow key={p.id} className={cn(!p.isActive && "opacity-60")}>
                       {/* Low stock rows get an amber edge on the left */}
                       <TableCell className={cn("whitespace-normal", p.isLowStock && "shadow-[inset_4px_0_0_var(--warning)]")}>
-                        <div className="font-medium">{p.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          <span className="md:hidden">{p.category}</span>
-                          {p.category && p.sku && <span className="md:hidden"> · </span>}
-                          {p.sku && `SKU ${p.sku}`}
+                        <div className="flex items-center gap-3">
+                          {p.imageUrl ? (
+                            <FadeImage
+                              src={imageThumb(p.imageUrl, { w: 80, h: 80 })}
+                              alt=""
+                              className="size-10 shrink-0 rounded-lg border border-border object-cover"
+                            />
+                          ) : (
+                            <span
+                              aria-hidden="true"
+                              className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-sm font-bold text-muted-foreground"
+                            >
+                              {p.name.trim().charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                          <div className="min-w-0">
+                            <div className="font-medium">{p.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              <span className="md:hidden">{p.category}</span>
+                              {p.category && p.sku && <span className="md:hidden"> · </span>}
+                              {p.sku && `SKU ${p.sku}`}
+                            </div>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">

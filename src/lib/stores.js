@@ -1,3 +1,5 @@
+import { isAllowedImageUrl } from "@/lib/images";
+
 export const CURRENCIES = ["NGN", "USD", "GBP"];
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
@@ -39,6 +41,12 @@ export function parseStoreInput(body, { partial = false } = {}) {
       return { error: "Accent color must be a hex value like #4F46E5" };
     }
     data.accentColor = color;
+  }
+
+  if (body.logoUrl !== undefined) {
+    const url = typeof body.logoUrl === "string" ? body.logoUrl.trim() : null;
+    if (url === null || (url !== "" && !isAllowedImageUrl(url))) return { error: "Use a logo uploaded through Koetap" };
+    data.logoUrl = url;
   }
 
   if (body.isActive !== undefined) {

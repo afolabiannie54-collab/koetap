@@ -11,6 +11,8 @@ const ProductSchema = new mongoose.Schema(
     costPrice: { type: Number },
     stock: { type: Number, default: 0 },
     lowStockThreshold: { type: Number },
+    // A Cloudinary URL, shown on the POS and in the products list. Optional.
+    imageUrl: { type: String },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

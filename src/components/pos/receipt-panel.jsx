@@ -9,13 +9,20 @@ import { FormField } from "@/components/ui/koetap/form-field";
 import { useFormValidation } from "@/lib/use-form-validation";
 import { rules } from "@/lib/validate";
 import { PAYMENT_LABELS, receiptNumber } from "@/lib/pos";
+import { imageThumb } from "@/lib/images";
 import { formatMoney } from "@/lib/stores";
+import { cn } from "@/lib/utils";
 
 // What the store's logo slot shows: the logo image, or the store's name set as a wordmark.
 export function StoreBrand({ store, className = "" }) {
   return store.logoUrl ? (
+    // A plain <img> (not the fading one): this is also what gets printed, and it must be there when the page prints.
     // eslint-disable-next-line @next/next/no-img-element -- logo URLs are arbitrary external images
-    <img src={store.logoUrl} alt={store.name} className={`max-h-9 w-auto object-contain ${className}`} />
+    <img
+      src={imageThumb(store.logoUrl, { w: 320, h: 96, fit: "limit" })}
+      alt={store.name}
+      className={cn("max-h-12 w-auto object-contain", className)}
+    />
   ) : (
     <span className={`truncate font-bold tracking-tight ${className}`}>{store.name}</span>
   );
@@ -84,7 +91,7 @@ export function ReceiptPanel({ sale, store, onNewSale }) {
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
         <div ref={printRef} className="receipt-paper rounded-2xl border p-5 shadow-sm">
           <div className="text-center">
-            <StoreBrand store={store} className="text-xl" />
+            <StoreBrand store={store} className="mx-auto text-xl" />
             {store.logoUrl && <p className="mt-1 text-lg font-bold">{store.name}</p>}
             {store.address && <p className="receipt-muted mt-0.5 text-xs">{store.address}</p>}
           </div>

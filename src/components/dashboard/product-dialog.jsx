@@ -7,6 +7,7 @@ import { FormError } from "@/components/auth/form-error";
 import { FormField } from "@/components/ui/koetap/form-field";
 import { useToast } from "@/components/ui/koetap/toast";
 import { Input } from "@/components/ui/input";
+import { KImageUpload } from "@/components/ui/koetap/KImageUpload";
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CATEGORY_MAX } from "@/lib/categories-shared";
 import {
@@ -46,8 +47,10 @@ export function ProductDialog({ storeId, product, storeThreshold, categories, on
     costPrice: product?.costPrice != null ? String(product.costPrice) : "",
     stock: product ? String(product.stock) : "0",
     lowStockThreshold: product?.lowStockThreshold != null ? String(product.lowStockThreshold) : "",
+    imageUrl: product?.imageUrl ?? "",
   });
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   // "Create new category" reveals a box here; the category is created together with the product
   const [creating, setCreating] = useState(false);
   const [newCategory, setNewCategory] = useState("");
@@ -127,6 +130,16 @@ export function ProductDialog({ storeId, product, storeThreshold, categories, on
         </DialogHeader>
 
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
+          <KImageUpload
+            label="Product image"
+            hint="Shown on the POS screen."
+            size={120}
+            optional
+            value={form.imageUrl || null}
+            onChange={(url) => setForm({ ...form, imageUrl: url ?? "" })}
+            onUploadingChange={setUploading}
+          />
+
           <FormField id="p-name" label="Name" error={errors.name}>
             {(a11y) => <Input {...a11y} value={form.name} onChange={update("name")} onBlur={onBlur("name")} />}
           </FormField>
@@ -221,7 +234,7 @@ export function ProductDialog({ storeId, product, storeThreshold, categories, on
             <Button type="button" variant="secondary" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" loading={loading}>
+            <Button type="submit" loading={loading} disabled={uploading}>
               {loading ? "Saving..." : editing ? "Save changes" : "Add product"}
             </Button>
           </DialogFooter>

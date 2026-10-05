@@ -28,8 +28,10 @@ import { ThemeToggle } from "@/components/ui/koetap/theme-toggle";
 import { useToast } from "@/components/ui/koetap/toast";
 import { KTooltip } from "@/components/ui/koetap/tooltip";
 import { ReceiptPanel, StoreBrand } from "@/components/pos/receipt-panel";
+import { FadeImage } from "@/components/ui/koetap/fade-image";
 import { PAYMENT_LABELS, PAYMENT_METHODS, newSaleKey, readableTextColor, roundMoney } from "@/lib/pos";
 import { formatMoney } from "@/lib/stores";
+import { imageThumb } from "@/lib/images";
 import { storeThemeCss } from "@/lib/theme";
 import {
   addHeldOrder,
@@ -374,7 +376,7 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
         <div className="flex min-w-0 shrink-0 items-center gap-3 md:w-64">
           {store.logoUrl ? (
             <span className="rounded-lg bg-white p-1.5">
-              <StoreBrand store={store} className="max-w-40" />
+              <StoreBrand store={store} className="max-h-8 max-w-40" />
             </span>
           ) : (
             <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-foreground text-lg font-bold text-primary">
@@ -483,14 +485,22 @@ export function PosScreen({ store, cashierName, role, initialProducts }) {
                         out ? "cursor-not-allowed" : "hover:-translate-y-0.5 hover:shadow-md active:scale-[0.97]"
                       )}
                     >
-                      {/* No product pictures yet, so each product gets a tile with its initial */}
+                      {/* The product's picture, or (when it has none) a tile with its initial */}
                       <span
                         className={cn(
-                          "relative flex h-24 items-center justify-center bg-muted text-5xl font-bold text-foreground/20 select-none",
-                          out && "opacity-60"
+                          "relative flex h-28 items-center justify-center overflow-hidden bg-muted text-5xl font-bold text-foreground/20 select-none sm:h-32",
+                          out && "opacity-60 grayscale"
                         )}
                       >
-                        {p.name.trim().charAt(0).toUpperCase()}
+                        {p.imageUrl ? (
+                          <FadeImage
+                            src={imageThumb(p.imageUrl, { w: 480, h: 320 })}
+                            alt=""
+                            className="size-full object-cover transition-transform duration-300 group-hover/product:scale-105"
+                          />
+                        ) : (
+                          p.name.trim().charAt(0).toUpperCase()
+                        )}
                         {low && (
                           <span className="absolute top-2 left-2 rounded-md bg-warning-soft px-1.5 py-0.5 text-[11px] font-bold text-warning-ink">
                             {p.stock} left

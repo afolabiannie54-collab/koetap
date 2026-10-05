@@ -5,7 +5,9 @@ import { readableTextColor } from "@/lib/pos";
 import { storeAccentCss, storeThemeCss } from "@/lib/theme";
 import { CrumbSection } from "@/components/store/crumb-section";
 import { KBadge } from "@/components/ui/koetap/KBadge";
+import { FadeImage } from "@/components/ui/koetap/fade-image";
 import { Skeleton } from "@/components/ui/skeleton";
+import { imageThumb } from "@/lib/images";
 
 // The pieces of the store environment that need the store loaded from the database. The layout wraps each one in
 // <Suspense>, so the navigation links and buttons show straight away and only these fill in.
@@ -29,8 +31,11 @@ export async function StoreLogoSlot({ storeId }) {
   const { store } = await getStorePageData(storeId);
 
   return store.logoUrl ? (
-    // eslint-disable-next-line @next/next/no-img-element -- logo URLs are arbitrary external images
-    <img src={store.logoUrl} alt="" className="size-11 shrink-0 rounded-xl border border-border object-cover" />
+    <FadeImage
+      src={imageThumb(store.logoUrl, { w: 132, h: 132 })}
+      alt=""
+      className="size-11 shrink-0 rounded-xl border border-border bg-card object-cover"
+    />
   ) : (
     <span
       aria-hidden="true"

@@ -1,3 +1,5 @@
+import { isAllowedImageUrl } from "@/lib/images";
+
 export const ADJUSTMENT_TYPES = ["restock", "correction", "write-off"];
 
 const isBlank = (v) => v === "" || v === null || v === undefined;
@@ -63,6 +65,12 @@ export function parseProductInput(body, { partial = false } = {}) {
     }
   }
 
+  if (body.imageUrl !== undefined) {
+    const url = typeof body.imageUrl === "string" ? body.imageUrl.trim() : null;
+    if (url === null || (url !== "" && !isAllowedImageUrl(url))) return fail("imageUrl", "Use an image uploaded through Koetap");
+    data.imageUrl = url;
+  }
+
   if (body.isActive !== undefined) {
     if (typeof body.isActive !== "boolean") return fail("isActive", "Invalid isActive");
     data.isActive = body.isActive;
@@ -117,6 +125,7 @@ export function serializeProduct(doc, storeThreshold = 5) {
     costPrice: p.costPrice ?? null,
     stock,
     lowStockThreshold: p.lowStockThreshold ?? null,
+    imageUrl: p.imageUrl ?? "",
     effectiveThreshold,
     isLowStock: isActive && stock <= effectiveThreshold,
     isActive,

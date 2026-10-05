@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,6 +10,7 @@ import { FormError } from "@/components/auth/form-error";
 import { useConfirm } from "@/components/ui/koetap/confirm-dialog";
 import { FormField } from "@/components/ui/koetap/form-field";
 import { InfoTip } from "@/components/ui/koetap/info-tip";
+import { KImageUpload } from "@/components/ui/koetap/KImageUpload";
 import { KTooltip } from "@/components/ui/koetap/tooltip";
 import { useToast } from "@/components/ui/koetap/toast";
 import { CURRENCIES } from "@/lib/stores";
@@ -49,10 +49,12 @@ export function StoreSettingsForm({ store }) {
     lowStockThreshold: String(store.lowStockThreshold),
     accentColor: store.accentColor,
     receiptFooter: store.receiptFooter,
+    logoUrl: store.logoUrl,
   };
   const [form, setForm] = useState(initial);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [toggling, setToggling] = useState(false);
   const { errors, onBlur, validate } = useFormValidation(SCHEMA, form, { idPrefix: "s-" });
 
@@ -126,91 +128,20 @@ export function StoreSettingsForm({ store }) {
   return (
     <div className="animate-contentIn">
       <form onSubmit={handleSubmit} noValidate>
-        <Section title="Store details" description="The basics shown across your store and on receipts.">
-          <FormField id="s-name" label="Store name" error={errors.name}>
-            {(a11y) => <Input {...a11y} value={form.name} onChange={update("name")} onBlur={onBlur("name")} />}
-          </FormField>
-          <FormField id="s-address" label="Address" optional help="Shown under your store's name here and printed at the top of receipts." error={errors.address}>
-            {(a11y) => <Input {...a11y} value={form.address} onChange={update("address")} onBlur={onBlur("address")} />}
-          </FormField>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField
-              id="s-currency"
-              label="Currency"
-              help="The currency prices, sales and receipts are shown in. Changing it only changes how amounts are labelled; it doesn't convert the prices you've already set."
-            >
-              {(a11y) => (
-                <Select value={form.currency} onValueChange={(currency) => setForm({ ...form, currency })}>
-                  <SelectTrigger {...a11y} className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CURRENCIES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </FormField>
-            <FormField
-              id="s-lowStockThreshold"
-              label="Low stock alert at"
-              help="When a product's stock falls to this number or below, it's flagged as running low on the overview and in the products list. You can set a different level for an individual product."
-              error={errors.lowStockThreshold}
-              hint="Warn when a product falls to this many."
-            >
-              {(a11y) => (
-                <Input
-                  {...a11y}
-                  type="number"
-                  inputMode="numeric"
-                  min="0"
-                  step="1"
-                  value={form.lowStockThreshold}
-                  onChange={update("lowStockThreshold")}
-                  onBlur={onBlur("lowStockThreshold")}
-                />
-              )}
-            </FormField>
-          </div>
-        </Section>
-
         <Section title="Branding" description="How your POS looks to your cashiers, and what your receipts say.">
-          {/* Where the store's logo goes. Upload isn't built yet, so this holds the place (and shows the initial that stands in for it). */}
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1">
-              <span className="text-sm leading-none font-medium">Store logo</span>
-              <InfoTip label="About the store logo">
-                Your logo appears at the top of this store&apos;s sidebar, in the POS header and on receipts. Until you can upload one, your store&apos;s first letter stands in for it.
-              </InfoTip>
-            </div>
-            <div className="flex items-center gap-4 rounded-2xl border-2 border-dashed border-input p-4">
-              {store.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- logo URLs are arbitrary external images
-                <img src={store.logoUrl} alt="" className="size-16 shrink-0 rounded-2xl border border-border object-cover" />
-              ) : (
-                <span
-                  aria-hidden="true"
-                  style={{ background: accentValid ? form.accentColor : "var(--foreground)", color: accentValid ? readableTextColor(form.accentColor) : "var(--background)" }}
-                  className="flex size-16 shrink-0 items-center justify-center rounded-2xl text-3xl font-bold"
-                >
-                  {(form.name.trim().charAt(0) || "S").toUpperCase()}
-                </span>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">Logo upload is coming soon</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">Square images work best. Until then, your store&apos;s first letter is shown.</p>
-              </div>
-              <KTooltip label="Logo upload isn't available yet" align="end">
-                <Button type="button" variant="secondary" size="sm" disabled>
-                  <ImagePlus />
-                  Upload
-                </Button>
-              </KTooltip>
-            </div>
-          </div>
+          <KImageUpload
+            label="Store logo"
+            hint="Shown at the top of your store's sidebar, on your POS screen and on receipts."
+            shape="circle"
+            size={96}
+            optional
+            value={form.logoUrl || null}
+            onChange={(url) => {
+              setForm({ ...form, logoUrl: url ?? "" });
+              setError("");
+            }}
+            onUploadingChange={setUploadingLogo}
+          />
 
           <FormField
             id="s-accentColor"
@@ -276,8 +207,59 @@ export function StoreSettingsForm({ store }) {
           </FormField>
         </Section>
 
+        <Section title="Store details" description="The basics shown across your store and on receipts.">
+          <FormField id="s-name" label="Store name" error={errors.name}>
+            {(a11y) => <Input {...a11y} value={form.name} onChange={update("name")} onBlur={onBlur("name")} />}
+          </FormField>
+          <FormField id="s-address" label="Address" optional help="Shown under your store's name here and printed at the top of receipts." error={errors.address}>
+            {(a11y) => <Input {...a11y} value={form.address} onChange={update("address")} onBlur={onBlur("address")} />}
+          </FormField>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              id="s-currency"
+              label="Currency"
+              help="The currency prices, sales and receipts are shown in. Changing it only changes how amounts are labelled; it doesn't convert the prices you've already set."
+            >
+              {(a11y) => (
+                <Select value={form.currency} onValueChange={(currency) => setForm({ ...form, currency })}>
+                  <SelectTrigger {...a11y} className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CURRENCIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </FormField>
+            <FormField
+              id="s-lowStockThreshold"
+              label="Low stock alert at"
+              help="When a product's stock falls to this number or below, it's flagged as running low on the overview and in the products list. You can set a different level for an individual product."
+              error={errors.lowStockThreshold}
+              hint="Warn when a product falls to this many."
+            >
+              {(a11y) => (
+                <Input
+                  {...a11y}
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  step="1"
+                  value={form.lowStockThreshold}
+                  onChange={update("lowStockThreshold")}
+                  onBlur={onBlur("lowStockThreshold")}
+                />
+              )}
+            </FormField>
+          </div>
+        </Section>
+
         <div className="flex flex-wrap items-center gap-3 border-t border-border pt-6">
-          <Button type="submit" size="lg" loading={saving} disabled={!dirty}>
+          <Button type="submit" size="lg" loading={saving} disabled={!dirty || uploadingLogo}>
             {saving ? "Saving..." : "Save changes"}
           </Button>
           {!dirty && !error && <span className="text-sm text-muted-foreground">No changes to save</span>}

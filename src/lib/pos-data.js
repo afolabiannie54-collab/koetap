@@ -8,7 +8,7 @@ import { serializeStore } from "@/lib/stores";
 // What the POS needs to know about a product, and nothing more (no cost price, no thresholds).
 export async function loadPosProducts(storeObjectId) {
   const products = await Product.find({ storeId: storeObjectId, isActive: true })
-    .select("name price stock category sku")
+    .select("name price stock category sku imageUrl")
     .sort({ name: 1 })
     .collation({ locale: "en" })
     .lean();
@@ -20,6 +20,7 @@ export async function loadPosProducts(storeObjectId) {
     stock: p.stock ?? 0,
     category: p.category ?? "",
     sku: p.sku ?? "",
+    imageUrl: p.imageUrl ?? "",
   }));
 }
 
